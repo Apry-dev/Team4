@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "182851243109",
+    "project_id": "esn-messenger",
+    "storage_bucket": "esn-messenger.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:182851243109:android:c95755c736c38ce42c0a8c",
+        "android_client_info": {
+          "package_name": "com.example.esnmessenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfORHQ1DV5LKcIOo-52sEBPPQGcAoRmuc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
