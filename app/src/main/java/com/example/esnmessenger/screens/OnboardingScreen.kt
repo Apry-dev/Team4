@@ -1,25 +1,21 @@
 package com.example.esnmessenger.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.esnmessenger.ui.theme.ESNCyan
-import com.example.esnmessenger.ui.theme.ESNMagenta
+import com.example.esnmessenger.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -27,6 +23,13 @@ private val INTERESTS = listOf(
     "Sports", "Music", "Cooking", "Travel", "Photography",
     "Gaming", "Reading", "Art", "Technology", "Languages",
     "Dancing", "Hiking", "Cinema", "Volunteering", "Fitness"
+)
+
+private val INTEREST_EMOJIS = mapOf(
+    "Sports" to "🏃", "Music" to "🎵", "Cooking" to "🍳", "Travel" to "✈️",
+    "Photography" to "📸", "Gaming" to "🎮", "Reading" to "📚", "Art" to "🎨",
+    "Technology" to "💻", "Languages" to "🗣️", "Dancing" to "💃",
+    "Hiking" to "🥾", "Cinema" to "🎬", "Volunteering" to "🤝", "Fitness" to "💪"
 )
 
 private val STUDENT_TYPES = listOf("International", "Local")
@@ -46,27 +49,46 @@ fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        // Header
+        // Gradient header with segmented step indicator
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ESNCyan)
-                .padding(24.dp)
+                .background(brush = Brush.verticalGradient(listOf(ESNCyanDark, ESNCyan)))
+                .padding(horizontal = 24.dp, vertical = 20.dp)
         ) {
             Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    (1..3).forEach { i ->
+                        Box(
+                            modifier = Modifier
+                                .height(4.dp)
+                                .weight(1f)
+                                .background(
+                                    color = if (i <= step) Color.White else Color.White.copy(alpha = 0.35f),
+                                    shape = RoundedCornerShape(2.dp)
+                                )
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = when (step) {
+                        1 -> "About You"
+                        2 -> "Your Studies"
+                        else -> "Your Interests"
+                    },
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge
+                )
                 Text(
                     text = "Step $step of 3",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                LinearProgressIndicator(
-                    progress = { step / 3f },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.3f)
+                    color = Color.White.copy(alpha = 0.75f),
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
@@ -160,64 +182,93 @@ private fun StepOne(
             .verticalScroll(rememberScrollState())
             .padding(28.dp)
     ) {
-        Text("Let's get started!", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("Tell us a bit about yourself", color = Color.Gray, fontSize = 14.sp)
+        Text(
+            "Let's get started!",
+            style = MaterialTheme.typography.headlineMedium,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Tell us a bit about yourself",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary
+        )
         Spacer(Modifier.height(28.dp))
 
-        Text("Full Name", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(6.dp))
+        Text("Full Name", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = name,
             onValueChange = onNameChange,
             placeholder = { Text("Enter your full name") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ESNCyan,
+                focusedLabelColor = ESNCyan,
+            )
         )
 
-        Spacer(Modifier.height(18.dp))
-        Text("University", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(20.dp))
+        Text("University", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = university,
             onValueChange = onUniversityChange,
             placeholder = { Text("Your university") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ESNCyan,
+                focusedLabelColor = ESNCyan,
+            )
         )
 
-        Spacer(Modifier.height(18.dp))
-        Text("Student Type", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(20.dp))
+        Text("Student Type", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             STUDENT_TYPES.forEach { type ->
-                val selected = studentType == type
-                OutlinedButton(
+                FilterChip(
+                    selected = studentType == type,
                     onClick = { onStudentTypeChange(type) },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (selected) ESNCyan else Color.Transparent,
-                        contentColor = if (selected) Color.White else ESNCyan
-                    ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(ESNCyan)
+                    label = { Text(type) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ESNCyan,
+                        selectedLabelColor = Color.White,
+                        selectedLeadingIconColor = Color.White,
                     )
-                ) {
-                    Text(type)
-                }
+                )
             }
         }
 
         if (errorMessage.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+            Spacer(Modifier.height(10.dp))
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    errorMessage,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(32.dp))
         Button(
             onClick = onNext,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
         ) {
-            Text("Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Continue", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -236,65 +287,90 @@ private fun StepTwo(
             .verticalScroll(rememberScrollState())
             .padding(28.dp)
     ) {
-        Text("Academic Details", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("Help us match you with the right people", color = Color.Gray, fontSize = 14.sp)
+        Text(
+            "Academic Details",
+            style = MaterialTheme.typography.headlineMedium,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Help us match you with the right people",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary
+        )
         Spacer(Modifier.height(28.dp))
 
-        Text("Major / Field of Study", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(6.dp))
+        Text("Major / Field of Study", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = major,
             onValueChange = onMajorChange,
             placeholder = { Text("e.g. Computer Science") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ESNCyan,
+                focusedLabelColor = ESNCyan,
+            )
         )
 
-        Spacer(Modifier.height(18.dp))
-        Text("Year of Study", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(6.dp))
-        years.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { y ->
-                    val selected = year == y
-                    OutlinedButton(
-                        onClick = { onYearChange(y) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (selected) ESNCyan else Color.Transparent,
-                            contentColor = if (selected) Color.White else ESNCyan
-                        ),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(ESNCyan)
-                        )
-                    ) {
-                        Text(y, fontSize = 12.sp)
-                    }
-                }
+        Spacer(Modifier.height(20.dp))
+        Text("Year of Study", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(8.dp))
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            years.forEach { y ->
+                FilterChip(
+                    selected = year == y,
+                    onClick = { onYearChange(y) },
+                    label = { Text(y) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ESNCyan,
+                        selectedLabelColor = Color.White,
+                        selectedLeadingIconColor = Color.White,
+                    )
+                )
             }
-            Spacer(Modifier.height(6.dp))
         }
 
         if (errorMessage.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+            Spacer(Modifier.height(10.dp))
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    errorMessage,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(32.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 onClick = onBack,
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.weight(1f).height(52.dp),
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Back")
+                Text("Back", style = MaterialTheme.typography.labelLarge)
             }
             Button(
                 onClick = onNext,
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.weight(1f).height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
             ) {
-                Text("Continue", fontWeight = FontWeight.Bold)
+                Text("Continue", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -312,71 +388,98 @@ private fun StepThree(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(28.dp)
+            .padding(horizontal = 28.dp)
     ) {
-        Text("Your Interests", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("What do you enjoy doing?", color = Color.Gray, fontSize = 14.sp)
-        Spacer(Modifier.height(20.dp))
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
         ) {
-            items(INTERESTS) { interest ->
-                val selected = interest in selectedInterests
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            width = 1.5.dp,
-                            color = if (selected) ESNMagenta else Color.LightGray,
-                            shape = RoundedCornerShape(12.dp)
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Your Interests",
+                style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "What do you enjoy doing?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+            Spacer(Modifier.height(20.dp))
+
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                INTERESTS.forEach { interest ->
+                    val selected = interest in selectedInterests
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onInterestToggle(interest) },
+                        label = {
+                            Text("${INTEREST_EMOJIS[interest] ?: ""} $interest")
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ESNMagenta,
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White,
                         )
-                        .background(
-                            color = if (selected) ESNMagenta.copy(alpha = 0.1f) else Color.White,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .clickable { onInterestToggle(interest) }
-                        .padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = interest,
-                        color = if (selected) ESNMagenta else Color.Gray,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 14.sp
                     )
                 }
             }
+
+            if (errorMessage.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        errorMessage,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
         }
 
-        if (errorMessage.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-        }
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 onClick = onBack,
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.weight(1f).height(52.dp),
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Back")
+                Text("Back", style = MaterialTheme.typography.labelLarge)
             }
             Button(
                 onClick = onFinish,
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier.weight(1f).height(52.dp),
                 enabled = !isLoading,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
             ) {
                 if (isLoading)
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp
+                    )
                 else
-                    Text("Get Started", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Get Started",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
             }
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
