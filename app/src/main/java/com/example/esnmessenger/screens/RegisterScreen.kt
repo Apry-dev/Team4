@@ -25,7 +25,7 @@ import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun RegisterScreen(
-    onRegisterSuccess: () -> Unit,
+    onRegisterSuccess: (String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
@@ -181,7 +181,7 @@ fun RegisterScreen(
                                 auth.createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnCompleteListener { task ->
                                         isLoading = false
-                                        if (task.isSuccessful) onRegisterSuccess()
+                                        if (task.isSuccessful) onRegisterSuccess(task.result?.user?.email ?: email.trim())
                                         else errorMessage = task.exception?.message ?: "Registration failed"
                                     }
                             }

@@ -35,7 +35,7 @@ private val INTEREST_EMOJIS = mapOf(
 private val STUDENT_TYPES = listOf("International", "Local")
 
 @Composable
-fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
+fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
     var step by remember { mutableIntStateOf(1) }
     var name by remember { mutableStateOf("") }
     var university by remember { mutableStateOf("") }
@@ -145,8 +145,10 @@ fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
                     }
                     isLoading = true
                     errorMessage = ""
-                    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@StepThree
+                    val currentUser = FirebaseAuth.getInstance().currentUser ?: return@StepThree
+                    val uid = currentUser.uid
                     val profile = hashMapOf(
+                        "email" to email.trim().lowercase(),
                         "name" to name,
                         "university" to university,
                         "studentType" to studentType,
