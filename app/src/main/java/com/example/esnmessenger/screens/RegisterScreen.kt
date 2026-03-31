@@ -39,7 +39,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 
 @Composable
 fun RegisterScreen(
-    onRegisterSuccess: () -> Unit,
+    onRegisterSuccess: (String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
@@ -67,7 +67,7 @@ fun RegisterScreen(
                         isLoading = false
                         if (authTask.isSuccessful) {
                             val isNew = authTask.result.additionalUserInfo?.isNewUser == true
-                            if (isNew) onRegisterSuccess()
+                            if (isNew) onRegisterSuccess(authTask.result?.user?.email ?: "")
                             else errorMessage = "This account already exists. Please sign in instead."
                         } else {
                             errorMessage = authTask.exception?.message ?: "Google sign-up failed"
@@ -248,7 +248,7 @@ fun RegisterScreen(
                                 auth.createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnCompleteListener { task ->
                                         isLoading = false
-                                        if (task.isSuccessful) onRegisterSuccess()
+                                        if (task.isSuccessful) onRegisterSuccess(task.result?.user?.email ?: email.trim())
                                         else errorMessage = task.exception?.message ?: "Registration failed"
                                     }
                             }
