@@ -5,21 +5,47 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.esnmessenger.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun HomeScreen(onLogout: () -> Unit) {
+fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
     val user = FirebaseAuth.getInstance().currentUser
+    var recipientEmail by remember { mutableStateOf("") }
+    var isLookingUp by remember { mutableStateOf(false) }
+    var lookupError by remember { mutableStateOf<String?>(null) }
+
+    fun openChatByEmail() {
+        isLookingUp = true
+        lookupError = null
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .whereEqualTo("email", recipientEmail.trim().lowercase())
+            .limit(1)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                isLookingUp = false
+                val uid = snapshot.documents.firstOrNull()?.id
+                if (uid != null) {
+                    onOpenChat(uid)
+                } else {
+                    lookupError = "No user found with that email."
+                }
+            }
+            .addOnFailureListener { e ->
+                isLookingUp = false
+                lookupError = e.message ?: "Lookup failed."
+            }
+    }
 
     Column(
         modifier = Modifier
@@ -75,53 +101,66 @@ fun HomeScreen(onLogout: () -> Unit) {
             }
         }
 
-        // Empty state
+        // Chat entry
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(110.dp)
+                    .size(90.dp)
                     .background(ESNCyanLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "💬", fontSize = 48.sp)
+                Text(text = "💬", fontSize = 40.sp)
             }
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(24.dp))
             Text(
-                text = "Messages coming soon",
-                style = MaterialTheme.typography.headlineMedium,
+                text = "Start a conversation",
+                style = MaterialTheme.typography.headlineSmall,
                 color = TextPrimary,
-                textAlign = TextAlign.Center
+                fontWeight = FontWeight.SemiBold
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "We're building something great.\nStay tuned for updates!",
+                text = "Enter a user ID to open a chat",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
+                color = TextSecondary
             )
-            Spacer(Modifier.height(40.dp))
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            Spacer(Modifier.height(24.dp))
+            OutlinedTextField(
+                value = recipientEmail,
+                onValueChange = { recipientEmail = it; lookupError = null },
+                label = { Text("Recipient email") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                singleLine = true,
+                isError = lookupError != null,
+                supportingText = lookupError?.let { { Text(it) } },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ESNCyan,
+                    unfocusedBorderColor = OutlineColor
+                )
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = { openChatByEmail() },
+                enabled = recipientEmail.isNotBlank() && !isLookingUp,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("✨", fontSize = 20.sp)
-                    Text(
-                        text = "Messaging, events & more on the way",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                if (isLookingUp) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
                     )
+                } else {
+                    Text("Open Chat", color = Color.White, modifier = Modifier.padding(vertical = 6.dp))
                 }
             }
         }
