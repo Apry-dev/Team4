@@ -12,7 +12,20 @@
           "package_name": "com.example.esnmessenger"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "182851243109-krp199pg26rs0f96len5hj4q8uu0rjul.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.esnmessenger",
+            "certificate_hash": "9e15929fbbdf943b7943da241a20ea92c0a1ed6d"
+          }
+        },
+        {
+          "client_id": "182851243109-5466losc04d07pg9nfdcg43rah0u2a4a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBfORHQ1DV5LKcIOo-52sEBPPQGcAoRmuc"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "182851243109-5466losc04d07pg9nfdcg43rah0u2a4a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
