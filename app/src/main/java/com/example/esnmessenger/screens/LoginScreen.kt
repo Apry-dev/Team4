@@ -65,16 +65,25 @@ fun LoginScreen(
                 isLoading = true
                 auth.signInWithCredential(credential)
                     .addOnCompleteListener { authTask ->
-                        isLoading = false
                         if (authTask.isSuccessful) {
                             val isNew = authTask.result.additionalUserInfo?.isNewUser == true
                             if (isNew) {
-                                auth.currentUser?.delete()
-                                errorMessage = "No account found. Please sign up first."
+                                val user = auth.currentUser
+                                if (user != null) {
+                                    user.delete().addOnCompleteListener {
+                                        isLoading = false
+                                        errorMessage = "No account found. Please sign up first."
+                                    }
+                                } else {
+                                    isLoading = false
+                                    errorMessage = "No account found. Please sign up first."
+                                }
                             } else {
+                                isLoading = false
                                 onLoginSuccess()
                             }
                         } else {
+                            isLoading = false
                             errorMessage = authTask.exception?.message ?: "Google sign-in failed"
                         }
                     }

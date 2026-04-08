@@ -248,8 +248,12 @@ fun RegisterScreen(
                                 auth.createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnCompleteListener { task ->
                                         isLoading = false
-                                        if (task.isSuccessful) onRegisterSuccess(task.result?.user?.email ?: email.trim())
-                                        else errorMessage = task.exception?.message ?: "Registration failed"
+                                        if (task.isSuccessful) {
+                                            task.result?.user?.sendEmailVerification()
+                                            onRegisterSuccess(task.result?.user?.email ?: email.trim())
+                                        } else {
+                                            errorMessage = task.exception?.message ?: "Registration failed"
+                                        }
                                     }
                             }
                         }

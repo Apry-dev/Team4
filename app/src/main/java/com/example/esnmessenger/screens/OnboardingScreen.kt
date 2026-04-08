@@ -15,24 +15,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.esnmessenger.model.INTEREST_EMOJIS
+import com.example.esnmessenger.model.INTERESTS
+import com.example.esnmessenger.model.STUDENT_TYPES
+import com.example.esnmessenger.model.YEARS
 import com.example.esnmessenger.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-
-private val INTERESTS = listOf(
-    "Sports", "Music", "Cooking", "Travel", "Photography",
-    "Gaming", "Reading", "Art", "Technology", "Languages",
-    "Dancing", "Hiking", "Cinema", "Volunteering", "Fitness"
-)
-
-private val INTEREST_EMOJIS = mapOf(
-    "Sports" to "🏃", "Music" to "🎵", "Cooking" to "🍳", "Travel" to "✈️",
-    "Photography" to "📸", "Gaming" to "🎮", "Reading" to "📚", "Art" to "🎨",
-    "Technology" to "💻", "Languages" to "🗣️", "Dancing" to "💃",
-    "Hiking" to "🥾", "Cinema" to "🎬", "Volunteering" to "🤝", "Fitness" to "💪"
-)
-
-private val STUDENT_TYPES = listOf("International", "Local")
 
 @Composable
 fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
@@ -281,8 +270,6 @@ private fun StepTwo(
     year: String, onYearChange: (String) -> Unit,
     errorMessage: String, onBack: () -> Unit, onNext: () -> Unit
 ) {
-    val years = listOf("1st year", "2nd year", "3rd year", "4th year", "Master", "PhD")
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -326,7 +313,7 @@ private fun StepTwo(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            years.forEach { y ->
+            YEARS.forEach { y ->
                 FilterChip(
                     selected = year == y,
                     onClick = { onYearChange(y) },
