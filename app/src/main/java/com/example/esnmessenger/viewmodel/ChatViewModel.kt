@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -55,6 +56,16 @@ class ChatViewModel : ViewModel() {
             toId = otherUserId,
             text = text.trim()
         )
+
+        db.collection("chats").document(cid)
+            .set(
+                mapOf(
+                    "participants" to listOf(currentUid, otherUserId),
+                    "lastMessage" to text.trim(),
+                    "timestamp" to System.currentTimeMillis()
+                ),
+                SetOptions.merge()
+            )
 
         db.collection("chats")
             .document(cid)
