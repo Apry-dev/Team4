@@ -1,7 +1,10 @@
 package com.example.esnmessenger.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,6 +12,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import com.example.esnmessenger.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
 
 private enum class HomeTab { Messages, Restaurants, Statistics, Profile }
 
@@ -97,9 +103,11 @@ private fun MessagesTab(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
     val user = FirebaseAuth.getInstance().currentUser
     var displayName by remember { mutableStateOf("") }
     var showSignOutDialog by remember { mutableStateOf(false) }
-    var recipientEmail by remember { mutableStateOf("") }
-    var isLookingUp by remember { mutableStateOf(false) }
-    var lookupError by remember { mutableStateOf<String?>(null) }
+
+    var searchQuery by remember { mutableStateOf("") }
+    // Triple: uid, email, name
+    var searchResults by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
 
     LaunchedEffect(user?.uid) {
         val uid = user?.uid ?: return@LaunchedEffect
@@ -107,27 +115,54 @@ private fun MessagesTab(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
             .addOnSuccessListener { doc -> displayName = doc.getString("name") ?: "" }
     }
 
-    fun openChatByEmail() {
-        isLookingUp = true
-        lookupError = null
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .whereEqualTo("email", recipientEmail.trim().lowercase())
-            .limit(1)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                isLookingUp = false
-                val uid = snapshot.documents.firstOrNull()?.id
-                if (uid != null) {
-                    onOpenChat(uid)
-                } else {
-                    lookupError = "No user found with that email."
+    // Debounced search: fires 300 ms after the user stops typing.
+    // Runs two prefix queries in parallel (email + name) and merges results,
+    // so the user can be found by either field regardless of chat history.
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isBlank()) {
+            searchResults = emptyList()
+            isSearching = false
+            return@LaunchedEffect
+        }
+        delay(300)
+        isSearching = true
+        try {
+            val db = FirebaseFirestore.getInstance()
+            val query = searchQuery.trim().lowercase()
+            val queryEnd = query + '\uf8ff'
+
+            // Run both field queries concurrently then merge
+            val byEmail = db.collection("users")
+                .whereGreaterThanOrEqualTo("email", query)
+                .whereLessThan("email", queryEnd)
+                .limit(20)
+                .get()
+                .await()
+
+            val byName = db.collection("users")
+                .whereGreaterThanOrEqualTo("name", searchQuery.trim())
+                .whereLessThan("name", searchQuery.trim() + '\uf8ff')
+                .limit(20)
+                .get()
+                .await()
+
+            val merged = (byEmail.documents + byName.documents)
+                .distinctBy { it.id }
+                .filter { it.id != user?.uid }
+                .map { doc ->
+                    Triple(
+                        doc.id,
+                        doc.getString("email") ?: "",
+                        doc.getString("name") ?: ""
+                    )
                 }
-            }
-            .addOnFailureListener { e ->
-                isLookingUp = false
-                lookupError = e.message ?: "Lookup failed."
-            }
+
+            searchResults = merged
+        } catch (_: Exception) {
+            searchResults = emptyList()
+        } finally {
+            isSearching = false
+        }
     }
 
     Column(
@@ -135,7 +170,7 @@ private fun MessagesTab(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Gradient header with logout button
+        // Gradient header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -203,68 +238,142 @@ private fun MessagesTab(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
             }
         }
 
-        // Chat entry
-        Column(
+        // Search bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search users by email…") },
+            leadingIcon = {
+                if (isSearching) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = ESNCyan
+                    )
+                } else {
+                    Icon(Icons.Default.Search, contentDescription = "Search", tint = ESNCyan)
+                }
+            },
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            shape = RoundedCornerShape(14.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ESNCyan,
+                unfocusedBorderColor = OutlineColor
+            )
+        )
+
+        // Results / empty state
+        if (searchQuery.isNotBlank()) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (searchResults.isEmpty() && !isSearching) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No users found",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+                items(searchResults) { (uid, email, name) ->
+                    UserResultCard(name = name, email = email, onClick = { onOpenChat(uid) })
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(90.dp)
+                        .background(ESNCyanLight, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "💬", fontSize = 40.sp)
+                }
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = "Start a conversation",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Search for a user above to begin chatting",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserResultCard(name: String, email: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(90.dp)
+                    .size(42.dp)
                     .background(ESNCyanLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "💬", fontSize = 40.sp)
-            }
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = "Start a conversation",
-                style = MaterialTheme.typography.headlineSmall,
-                color = TextPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Enter a user ID to open a chat",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-            Spacer(Modifier.height(24.dp))
-            OutlinedTextField(
-                value = recipientEmail,
-                onValueChange = { recipientEmail = it; lookupError = null },
-                label = { Text("Recipient email") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                singleLine = true,
-                isError = lookupError != null,
-                supportingText = lookupError?.let { { Text(it) } },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ESNCyan,
-                    unfocusedBorderColor = OutlineColor
+                val initial = (name.firstOrNull() ?: email.firstOrNull() ?: '?')
+                    .uppercaseChar().toString()
+                Text(
+                    text = initial,
+                    color = ESNCyan,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
-            )
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { openChatByEmail() },
-                enabled = recipientEmail.isNotBlank() && !isLookingUp,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
-            ) {
-                if (isLookingUp) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text("Open Chat", color = Color.White, modifier = Modifier.padding(vertical = 6.dp))
-                }
             }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                if (name.isNotEmpty()) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = TextPrimary
+                    )
+                }
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.Chat,
+                contentDescription = "Open chat",
+                tint = ESNCyan,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

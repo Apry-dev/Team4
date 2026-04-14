@@ -26,6 +26,7 @@ import com.example.esnmessenger.model.Message
 import com.example.esnmessenger.ui.theme.*
 import com.example.esnmessenger.viewmodel.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -41,7 +42,16 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
+    // Load the other user's display info for the header
+    var otherUserName by remember { mutableStateOf("") }
+    var otherUserEmail by remember { mutableStateOf("") }
+
     LaunchedEffect(otherUserId) {
+        FirebaseFirestore.getInstance().collection("users").document(otherUserId).get()
+            .addOnSuccessListener { doc ->
+                otherUserName = doc.getString("name") ?: ""
+                otherUserEmail = doc.getString("email") ?: ""
+            }
         chatViewModel.loadMessages(otherUserId)
     }
 
@@ -72,18 +82,22 @@ fun ChatScreen(
                 }
                 Spacer(Modifier.width(4.dp))
                 Column {
+                    val headerTitle = otherUserName.ifEmpty { otherUserEmail }
                     Text(
-                        text = "Chat",
+                        text = headerTitle.ifEmpty { "Chat" },
                         color = Color.White,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = otherUserId,
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
+                    if (otherUserName.isNotEmpty() && otherUserEmail.isNotEmpty()) {
+                        Text(
+                            text = otherUserEmail,
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 11.sp,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
