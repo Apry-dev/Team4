@@ -1,10 +1,15 @@
 package com.example.esnmessenger.screens
 
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,10 +20,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,15 +52,27 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    // Load the other user's display info for the header
     var otherUserName by remember { mutableStateOf("") }
     var otherUserEmail by remember { mutableStateOf("") }
+    var otherUserPhotoBase64 by remember { mutableStateOf<String?>(null) }
+
+    // Decode the base64 photo to a Bitmap whenever the string changes.
+    // Null if the user hasn't set a photo yet.
+    val otherUserPhotoBitmap = remember(otherUserPhotoBase64) {
+        otherUserPhotoBase64?.let { b64 ->
+            try {
+                val bytes = Base64.decode(b64, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (_: Exception) { null }
+        }
+    }
 
     LaunchedEffect(otherUserId) {
         FirebaseFirestore.getInstance().collection("users").document(otherUserId).get()
             .addOnSuccessListener { doc ->
                 otherUserName = doc.getString("name") ?: ""
                 otherUserEmail = doc.getString("email") ?: ""
+                otherUserPhotoBase64 = doc.getString("photoBase64")
             }
         chatViewModel.loadMessages(otherUserId)
     }
@@ -64,13 +86,17 @@ fun ChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Gradient header — background drawn first so it extends behind the status bar,
+        // then statusBarsPadding() pushes content (back button / avatar / title) below it.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(brush = Brush.verticalGradient(listOf(ESNCyanDark, ESNCyan)))
-                .padding(horizontal = 8.dp, vertical = 12.dp)
+                .statusBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
@@ -81,21 +107,54 @@ fun ChatScreen(
                     )
                 }
                 Spacer(Modifier.width(4.dp))
-                Column {
+
+                // Profile picture — real photo if available, initial letter otherwise
+                if (otherUserPhotoBitmap != null) {
+                    Image(
+                        bitmap = otherUserPhotoBitmap.asImageBitmap(),
+                        contentDescription = "Profile photo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val initial = (otherUserName.firstOrNull() ?: otherUserEmail.firstOrNull() ?: '?')
+                            .uppercaseChar().toString()
+                        Text(
+                            text = initial,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     val headerTitle = otherUserName.ifEmpty { otherUserEmail }
                     Text(
                         text = headerTitle.ifEmpty { "Chat" },
                         color = Color.White,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     if (otherUserName.isNotEmpty() && otherUserEmail.isNotEmpty()) {
                         Text(
                             text = otherUserEmail,
                             color = Color.White.copy(alpha = 0.75f),
-                            fontSize = 11.sp,
-                            maxLines = 1
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -114,6 +173,11 @@ fun ChatScreen(
             )
         }
 
+        val otherUserInitial = remember(otherUserName, otherUserEmail) {
+            (otherUserName.firstOrNull() ?: otherUserEmail.firstOrNull() ?: '?')
+                .uppercaseChar().toString()
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -126,11 +190,15 @@ fun ChatScreen(
             items(messages, key = { it.id }) { message ->
                 MessageBubble(
                     message = message,
-                    isMine = message.fromId == currentUid
+                    isMine = message.fromId == currentUid,
+                    otherUserPhotoBitmap = otherUserPhotoBitmap,
+                    otherUserInitial = otherUserInitial
                 )
             }
         }
 
+        // Input bar — navigationBarsPadding() handles the gesture nav bar when the
+        // keyboard is hidden; imePadding() on the outer Column handles it when shown.
         Surface(
             tonalElevation = 4.dp,
             shadowElevation = 4.dp
@@ -138,6 +206,7 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -151,8 +220,10 @@ fun ChatScreen(
                     maxLines = 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        chatViewModel.sendMessage(otherUserId, inputText)
-                        inputText = ""
+                        if (inputText.isNotBlank()) {
+                            chatViewModel.sendMessage(otherUserId, inputText)
+                            inputText = ""
+                        }
                     }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
@@ -162,8 +233,10 @@ fun ChatScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
-                        chatViewModel.sendMessage(otherUserId, inputText)
-                        inputText = ""
+                        if (inputText.isNotBlank()) {
+                            chatViewModel.sendMessage(otherUserId, inputText)
+                            inputText = ""
+                        }
                     },
                     enabled = inputText.isNotBlank(),
                     modifier = Modifier
@@ -185,16 +258,54 @@ fun ChatScreen(
 }
 
 @Composable
-private fun MessageBubble(message: Message, isMine: Boolean) {
+private fun MessageBubble(
+    message: Message,
+    isMine: Boolean,
+    otherUserPhotoBitmap: android.graphics.Bitmap?,
+    otherUserInitial: String
+) {
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val timeText = remember(message.timestamp) {
         timeFormat.format(message.timestamp.toDate())
     }
+    // 72% of the screen width so bubbles stay readable on both small and large phones
+    val maxBubbleWidth = LocalConfiguration.current.screenWidthDp.dp * 0.72f
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
+        // Align the avatar to the bottom of the bubble
+        verticalAlignment = Alignment.Bottom
     ) {
+        // Avatar shown only for received messages, on the left
+        if (!isMine) {
+            if (otherUserPhotoBitmap != null) {
+                Image(
+                    bitmap = otherUserPhotoBitmap.asImageBitmap(),
+                    contentDescription = "Profile photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(ESNCyanLight, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = otherUserInitial,
+                        color = ESNCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            Spacer(Modifier.width(6.dp))
+        }
+
         Column(horizontalAlignment = if (isMine) Alignment.End else Alignment.Start) {
             Box(
                 modifier = Modifier
@@ -208,7 +319,7 @@ private fun MessageBubble(message: Message, isMine: Boolean) {
                         )
                     )
                     .padding(horizontal = 14.dp, vertical = 10.dp)
-                    .widthIn(max = 280.dp)
+                    .widthIn(max = maxBubbleWidth)
             ) {
                 Text(
                     text = message.text,
