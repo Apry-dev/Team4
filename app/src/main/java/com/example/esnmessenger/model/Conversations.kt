@@ -5,5 +5,6 @@ data class ChatSummary(
     val otherUserId: String,
     val otherUserName: String,
     val lastMessage: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val otherUserPhotoBase64: String? = null
 )

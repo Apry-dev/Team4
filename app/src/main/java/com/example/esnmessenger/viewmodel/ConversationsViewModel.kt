@@ -67,7 +67,8 @@ class ChatListViewModel : ViewModel() {
                                     otherUserId = otherUserId,
                                     otherUserName = name,
                                     lastMessage = lastMessage,
-                                    timestamp = timestamp
+                                    timestamp = timestamp,
+                                    otherUserPhotoBase64 = userDoc.getString("photoBase64")
                                 )
                             )
                             remaining--
