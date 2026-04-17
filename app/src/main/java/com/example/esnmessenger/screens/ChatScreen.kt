@@ -1,5 +1,6 @@
 package com.example.esnmessenger.screens
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,7 +39,6 @@ import com.example.esnmessenger.model.Message
 import com.example.esnmessenger.ui.theme.*
 import com.example.esnmessenger.viewmodel.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -103,12 +104,6 @@ fun ChatScreen(
     }
 
     LaunchedEffect(otherUserId) {
-        FirebaseFirestore.getInstance().collection("users").document(otherUserId).get()
-            .addOnSuccessListener { doc ->
-                otherUserName = doc.getString("name") ?: ""
-                otherUserEmail = doc.getString("email") ?: ""
-                otherUserPhotoBase64 = doc.getString("photoBase64")
-            }
         chatViewModel.loadMessages(otherUserId)
     }
 
@@ -163,11 +158,6 @@ fun ChatScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall
             )
-        }
-
-        val otherUserInitial = remember(otherUserName, otherUserEmail) {
-            (otherUserName.firstOrNull() ?: otherUserEmail.firstOrNull() ?: '?')
-                .uppercaseChar().toString()
         }
 
         LazyColumn(
