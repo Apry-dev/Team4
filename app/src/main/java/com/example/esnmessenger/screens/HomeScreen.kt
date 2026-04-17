@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
@@ -21,11 +22,11 @@ import com.example.esnmessenger.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
-private enum class HomeTab { Messages, Restaurants, Profile }
+private enum class HomeTab { Chats, Messages, Restaurants, Profile }
 
 @Composable
 fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
-    var selectedTab by remember { mutableStateOf(HomeTab.Messages) }
+    var selectedTab by remember { mutableStateOf(HomeTab.Chats) }
 
     Scaffold(
         bottomBar = {
@@ -33,6 +34,17 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 4.dp
             ) {
+                NavigationBarItem(
+                    selected = selectedTab == HomeTab.Chats,
+                    onClick = { selectedTab = HomeTab.Chats },
+                    icon = { Icon(Icons.Default.Forum, contentDescription = "Chats") },
+                    label = { Text("Chats") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = ESNCyan,
+                        selectedTextColor = ESNCyan,
+                        indicatorColor = ESNCyanLight
+                    )
+                )
                 NavigationBarItem(
                     selected = selectedTab == HomeTab.Messages,
                     onClick = { selectedTab = HomeTab.Messages },
@@ -71,6 +83,7 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
+                HomeTab.Chats -> ExistingChatsTab(onOpenChat = onOpenChat)
                 HomeTab.Messages -> MessagesTab(onLogout = onLogout, onOpenChat = onOpenChat)
                 HomeTab.Restaurants -> RestaurantsScreen()
                 HomeTab.Profile -> ProfileScreen()
