@@ -10,13 +10,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,9 +29,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 
-private enum class HomeTab { Messages, Restaurants, Statistics, Profile }
-
-private enum class HomeTab { Chats, Messages, Restaurants, Profile }
+private enum class HomeTab { Chats, Messages, Restaurants, Statistics, Profile }
 
 @Composable
 fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
@@ -107,50 +102,6 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
                 HomeTab.Chats -> ExistingChatsTab(onOpenChat = onOpenChat)
-                HomeTab.Messages -> MessagesTab(onLogout = onLogout, onOpenChat = onOpenChat)
-                HomeTab.Restaurants -> RestaurantsScreen()
-                HomeTab.Profile -> ProfileScreen()
-            }
-        }
-    }
-}
-
-@Composable
-private fun MessagesTab(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
-    val user = FirebaseAuth.getInstance().currentUser
-    var displayName by remember { mutableStateOf("") }
-    var showSignOutDialog by remember { mutableStateOf(false) }
-    var recipientEmail by remember { mutableStateOf("") }
-    var isLookingUp by remember { mutableStateOf(false) }
-    var lookupError by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(user?.uid) {
-        val uid = user?.uid ?: return@LaunchedEffect
-        FirebaseFirestore.getInstance().collection("users").document(uid).get()
-            .addOnSuccessListener { doc -> displayName = doc.getString("name") ?: "" }
-    }
-
-    fun openChatByEmail() {
-        isLookingUp = true
-        lookupError = null
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .whereEqualTo("email", recipientEmail.trim().lowercase())
-            .limit(1)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                isLookingUp = false
-                val uid = snapshot.documents.firstOrNull()?.id
-                if (uid != null) {
-                    onOpenChat(uid)
-                } else {
-                    lookupError = "No user found with that email."
-                }
-            }
-        }
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            when (selectedTab) {
                 HomeTab.Messages -> MessagesTab(onLogout = onLogout, onOpenChat = onOpenChat)
                 HomeTab.Restaurants -> RestaurantsScreen()
                 HomeTab.Statistics -> StatisticsScreen()
