@@ -1,5 +1,8 @@
 package com.example.esnmessenger.screens
 
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -19,8 +22,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -69,6 +76,17 @@ fun ExistingChatsTab(
 
 @Composable
 fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
+    val photoBitmap = remember(chat.otherUserPhotoBase64) {
+        chat.otherUserPhotoBase64?.let { base64 ->
+            try {
+                val bytes = Base64.decode(base64, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -76,17 +94,28 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .background(ESNCyanLight, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = chat.otherUserName.take(1).uppercase(),
-                color = ESNCyanDark,
-                fontWeight = FontWeight.Bold
+        if (photoBitmap != null) {
+            Image(
+                bitmap = photoBitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(ESNCyanLight, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = chat.otherUserName.take(1).uppercase(),
+                    color = ESNCyanDark,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
