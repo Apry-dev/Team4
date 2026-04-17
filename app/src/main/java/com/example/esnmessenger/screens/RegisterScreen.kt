@@ -1,5 +1,9 @@
 package com.example.esnmessenger.screens
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,18 +14,28 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.esnmessenger.R
 import com.example.esnmessenger.ui.theme.*
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 
 @Composable
 fun RegisterScreen(
@@ -31,10 +45,39 @@ fun RegisterScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
     val auth = FirebaseAuth.getInstance()
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                isLoading = true
+                auth.signInWithCredential(credential)
+                    .addOnCompleteListener { authTask ->
+                        isLoading = false
+                        if (authTask.isSuccessful) {
+                            val isNew = authTask.result.additionalUserInfo?.isNewUser == true
+                            if (isNew) onRegisterSuccess(authTask.result?.user?.email ?: "")
+                            else errorMessage = "This account already exists. Please sign in instead."
+                        } else {
+                            errorMessage = authTask.exception?.message ?: "Google sign-up failed"
+                        }
+                    }
+            } catch (e: ApiException) {
+                errorMessage = "Google sign-up failed"
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Gradient header
@@ -122,8 +165,20 @@ fun RegisterScreen(
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = ESNCyan)
                     },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff
+                                              else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password"
+                                                     else "Show password",
+                                tint = ESNCyan
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None
+                                           else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
@@ -140,8 +195,20 @@ fun RegisterScreen(
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = ESNCyan)
                     },
+                    trailingIcon = {
+                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                            Icon(
+                                imageVector = if (confirmPasswordVisible) Icons.Default.VisibilityOff
+                                              else Icons.Default.Visibility,
+                                contentDescription = if (confirmPasswordVisible) "Hide password"
+                                                     else "Show password",
+                                tint = ESNCyan
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None
+                                           else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
@@ -181,8 +248,12 @@ fun RegisterScreen(
                                 auth.createUserWithEmailAndPassword(email.trim(), password)
                                     .addOnCompleteListener { task ->
                                         isLoading = false
-                                        if (task.isSuccessful) onRegisterSuccess(task.result?.user?.email ?: email.trim())
-                                        else errorMessage = task.exception?.message ?: "Registration failed"
+                                        if (task.isSuccessful) {
+                                            task.result?.user?.sendEmailVerification()
+                                            onRegisterSuccess(task.result?.user?.email ?: email.trim())
+                                        } else {
+                                            errorMessage = task.exception?.message ?: "Registration failed"
+                                        }
                                     }
                             }
                         }
@@ -209,6 +280,43 @@ fun RegisterScreen(
                 Spacer(Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
+                    Text("  or  ", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
+                }
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = {
+                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                            .requestIdToken(context.getString(R.string.default_web_client_id))
+                            .requestEmail()
+                            .build()
+                        launcher.launch(GoogleSignIn.getClient(context, gso).signInIntent)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color.LightGray)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_google),
+                        contentDescription = "Google logo",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Continue with Google",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -217,10 +325,7 @@ fun RegisterScreen(
                         color = TextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    TextButton(
-                        onClick = onNavigateToLogin,
-                        contentPadding = PaddingValues(4.dp)
-                    ) {
+                    TextButton(onClick = onNavigateToLogin, contentPadding = PaddingValues(4.dp)) {
                         Text(
                             "Sign In",
                             color = ESNCyan,

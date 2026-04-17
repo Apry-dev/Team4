@@ -16,6 +16,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +27,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,6 +41,49 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+private fun base64ToBitmap(base64: String): Bitmap? = try {
+    val bytes = Base64.decode(base64, Base64.DEFAULT)
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+} catch (e: Exception) {
+    null
+}
+
+@Composable
+private fun UserAvatar(
+    bitmap: Bitmap?,
+    name: String?,
+    size: Int,
+    modifier: Modifier = Modifier
+) {
+    val sizeDp = size.dp
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .size(sizeDp)
+                .clip(CircleShape)
+                .border(1.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .size(sizeDp)
+                .background(Color.White.copy(alpha = 0.25f), CircleShape)
+                .border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = name?.take(1)?.uppercase() ?: "?",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size / 2.5).sp
+            )
+        }
+    }
+}
+
 @Composable
 fun ChatScreen(
     otherUserId: String,
@@ -49,22 +93,13 @@ fun ChatScreen(
     val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val messages by chatViewModel.messages.collectAsState()
     val error by chatViewModel.error.collectAsState()
+    val otherUserName by chatViewModel.otherUserName.collectAsState()
+    val otherUserPhotoBase64 by chatViewModel.otherUserPhotoBase64.collectAsState()
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    var otherUserName by remember { mutableStateOf("") }
-    var otherUserEmail by remember { mutableStateOf("") }
-    var otherUserPhotoBase64 by remember { mutableStateOf<String?>(null) }
-
-    // Decode the base64 photo to a Bitmap whenever the string changes.
-    // Null if the user hasn't set a photo yet.
-    val otherUserPhotoBitmap = remember(otherUserPhotoBase64) {
-        otherUserPhotoBase64?.let { b64 ->
-            try {
-                val bytes = Base64.decode(b64, Base64.DEFAULT)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            } catch (_: Exception) { null }
-        }
+    val otherUserBitmap = remember(otherUserPhotoBase64) {
+        otherUserPhotoBase64?.let { base64ToBitmap(it) }
     }
 
     LaunchedEffect(otherUserId) {
@@ -107,57 +142,14 @@ fun ChatScreen(
                     )
                 }
                 Spacer(Modifier.width(4.dp))
-
-                // Profile picture — real photo if available, initial letter otherwise
-                if (otherUserPhotoBitmap != null) {
-                    Image(
-                        bitmap = otherUserPhotoBitmap.asImageBitmap(),
-                        contentDescription = "Profile photo",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val initial = (otherUserName.firstOrNull() ?: otherUserEmail.firstOrNull() ?: '?')
-                            .uppercaseChar().toString()
-                        Text(
-                            text = initial,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-                }
-
+                UserAvatar(bitmap = otherUserBitmap, name = otherUserName, size = 40)
                 Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    val headerTitle = otherUserName.ifEmpty { otherUserEmail }
-                    Text(
-                        text = headerTitle.ifEmpty { "Chat" },
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (otherUserName.isNotEmpty() && otherUserEmail.isNotEmpty()) {
-                        Text(
-                            text = otherUserEmail,
-                            color = Color.White.copy(alpha = 0.75f),
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
+                Text(
+                    text = otherUserName ?: "Chat",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
 
@@ -191,8 +183,8 @@ fun ChatScreen(
                 MessageBubble(
                     message = message,
                     isMine = message.fromId == currentUid,
-                    otherUserPhotoBitmap = otherUserPhotoBitmap,
-                    otherUserInitial = otherUserInitial
+                    otherUserBitmap = otherUserBitmap,
+                    otherUserName = otherUserName
                 )
             }
         }
@@ -261,8 +253,8 @@ fun ChatScreen(
 private fun MessageBubble(
     message: Message,
     isMine: Boolean,
-    otherUserPhotoBitmap: android.graphics.Bitmap?,
-    otherUserInitial: String
+    otherUserBitmap: Bitmap?,
+    otherUserName: String?
 ) {
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val timeText = remember(message.timestamp) {
@@ -274,15 +266,14 @@ private fun MessageBubble(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
-        // Align the avatar to the bottom of the bubble
         verticalAlignment = Alignment.Bottom
     ) {
-        // Avatar shown only for received messages, on the left
         if (!isMine) {
-            if (otherUserPhotoBitmap != null) {
+            // Avatar for incoming messages
+            if (otherUserBitmap != null) {
                 Image(
-                    bitmap = otherUserPhotoBitmap.asImageBitmap(),
-                    contentDescription = "Profile photo",
+                    bitmap = otherUserBitmap.asImageBitmap(),
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(28.dp)
@@ -292,11 +283,11 @@ private fun MessageBubble(
                 Box(
                     modifier = Modifier
                         .size(28.dp)
-                        .background(ESNCyanLight, CircleShape),
+                        .background(ESNCyan.copy(alpha = 0.2f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = otherUserInitial,
+                        text = otherUserName?.take(1)?.uppercase() ?: "?",
                         color = ESNCyan,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp
@@ -328,11 +319,28 @@ private fun MessageBubble(
                 )
             }
             Spacer(Modifier.height(2.dp))
-            Text(
-                text = timeText,
-                color = TextSecondary,
-                fontSize = 10.sp
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = timeText,
+                    color = TextSecondary,
+                    fontSize = 10.sp
+                )
+                if (isMine) {
+                    Icon(
+                        imageVector = if (message.read) Icons.Default.DoneAll else Icons.Default.Done,
+                        contentDescription = if (message.read) "Read" else "Sent",
+                        tint = if (message.read) ESNCyan else TextSecondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        if (isMine) {
+            Spacer(Modifier.width(6.dp + 28.dp)) // balance the left-side avatar space
         }
     }
 }

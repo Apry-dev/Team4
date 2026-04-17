@@ -13,6 +13,10 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,9 +34,11 @@ import kotlinx.coroutines.tasks.await
 
 private enum class HomeTab { Messages, Restaurants, Statistics, Profile }
 
+private enum class HomeTab { Chats, Messages, Restaurants, Profile }
+
 @Composable
 fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
-    var selectedTab by remember { mutableStateOf(HomeTab.Messages) }
+    var selectedTab by remember { mutableStateOf(HomeTab.Chats) }
 
     Scaffold(
         bottomBar = {
@@ -40,6 +46,17 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 4.dp
             ) {
+                NavigationBarItem(
+                    selected = selectedTab == HomeTab.Chats,
+                    onClick = { selectedTab = HomeTab.Chats },
+                    icon = { Icon(Icons.Default.Forum, contentDescription = "Chats") },
+                    label = { Text("Chats") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = ESNCyan,
+                        selectedTextColor = ESNCyan,
+                        indicatorColor = ESNCyanLight
+                    )
+                )
                 NavigationBarItem(
                     selected = selectedTab == HomeTab.Messages,
                     onClick = { selectedTab = HomeTab.Messages },
@@ -84,6 +101,51 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
                         indicatorColor = ESNCyanLight
                     )
                 )
+            }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            when (selectedTab) {
+                HomeTab.Chats -> ExistingChatsTab(onOpenChat = onOpenChat)
+                HomeTab.Messages -> MessagesTab(onLogout = onLogout, onOpenChat = onOpenChat)
+                HomeTab.Restaurants -> RestaurantsScreen()
+                HomeTab.Profile -> ProfileScreen()
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessagesTab(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
+    val user = FirebaseAuth.getInstance().currentUser
+    var displayName by remember { mutableStateOf("") }
+    var showSignOutDialog by remember { mutableStateOf(false) }
+    var recipientEmail by remember { mutableStateOf("") }
+    var isLookingUp by remember { mutableStateOf(false) }
+    var lookupError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(user?.uid) {
+        val uid = user?.uid ?: return@LaunchedEffect
+        FirebaseFirestore.getInstance().collection("users").document(uid).get()
+            .addOnSuccessListener { doc -> displayName = doc.getString("name") ?: "" }
+    }
+
+    fun openChatByEmail() {
+        isLookingUp = true
+        lookupError = null
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .whereEqualTo("email", recipientEmail.trim().lowercase())
+            .limit(1)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                isLookingUp = false
+                val uid = snapshot.documents.firstOrNull()?.id
+                if (uid != null) {
+                    onOpenChat(uid)
+                } else {
+                    lookupError = "No user found with that email."
+                }
             }
         }
     ) { innerPadding ->

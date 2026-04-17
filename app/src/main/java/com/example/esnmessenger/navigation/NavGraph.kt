@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,6 +18,8 @@ import com.example.esnmessenger.screens.HomeScreen
 import com.example.esnmessenger.screens.LoginScreen
 import com.example.esnmessenger.screens.OnboardingScreen
 import com.example.esnmessenger.screens.RegisterScreen
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -52,6 +55,7 @@ private fun ProfileCheckScreen(onHasProfile: () -> Unit, onNoProfile: () -> Unit
 fun NavGraph(navController: NavHostController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val startDestination = if (currentUser != null) Routes.PROFILE_CHECK else Routes.LOGIN
+    val context = LocalContext.current
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Routes.PROFILE_CHECK) {
@@ -101,6 +105,8 @@ fun NavGraph(navController: NavHostController) {
             HomeScreen(
                 onLogout = {
                     FirebaseAuth.getInstance().signOut()
+                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+                    GoogleSignIn.getClient(context, gso).signOut()
                     navController.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
                 },
                 onOpenChat = { otherUserId ->
