@@ -1,6 +1,5 @@
 package com.example.esnmessenger.screens
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
@@ -30,6 +29,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,6 +37,7 @@ import com.example.esnmessenger.model.Message
 import com.example.esnmessenger.ui.theme.*
 import com.example.esnmessenger.viewmodel.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -102,6 +103,12 @@ fun ChatScreen(
     }
 
     LaunchedEffect(otherUserId) {
+        FirebaseFirestore.getInstance().collection("users").document(otherUserId).get()
+            .addOnSuccessListener { doc ->
+                otherUserName = doc.getString("name") ?: ""
+                otherUserEmail = doc.getString("email") ?: ""
+                otherUserPhotoBase64 = doc.getString("photoBase64")
+            }
         chatViewModel.loadMessages(otherUserId)
     }
 
@@ -114,13 +121,17 @@ fun ChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Gradient header — background drawn first so it extends behind the status bar,
+        // then statusBarsPadding() pushes content (back button / avatar / title) below it.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(brush = Brush.verticalGradient(listOf(ESNCyanDark, ESNCyan)))
-                .padding(horizontal = 8.dp, vertical = 12.dp)
+                .statusBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
@@ -154,6 +165,11 @@ fun ChatScreen(
             )
         }
 
+        val otherUserInitial = remember(otherUserName, otherUserEmail) {
+            (otherUserName.firstOrNull() ?: otherUserEmail.firstOrNull() ?: '?')
+                .uppercaseChar().toString()
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -173,6 +189,8 @@ fun ChatScreen(
             }
         }
 
+        // Input bar — navigationBarsPadding() handles the gesture nav bar when the
+        // keyboard is hidden; imePadding() on the outer Column handles it when shown.
         Surface(
             tonalElevation = 4.dp,
             shadowElevation = 4.dp
@@ -180,6 +198,7 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -193,8 +212,10 @@ fun ChatScreen(
                     maxLines = 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        chatViewModel.sendMessage(otherUserId, inputText)
-                        inputText = ""
+                        if (inputText.isNotBlank()) {
+                            chatViewModel.sendMessage(otherUserId, inputText)
+                            inputText = ""
+                        }
                     }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
@@ -204,8 +225,10 @@ fun ChatScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
-                        chatViewModel.sendMessage(otherUserId, inputText)
-                        inputText = ""
+                        if (inputText.isNotBlank()) {
+                            chatViewModel.sendMessage(otherUserId, inputText)
+                            inputText = ""
+                        }
                     },
                     enabled = inputText.isNotBlank(),
                     modifier = Modifier
@@ -237,6 +260,8 @@ private fun MessageBubble(
     val timeText = remember(message.timestamp) {
         timeFormat.format(message.timestamp.toDate())
     }
+    // 72% of the screen width so bubbles stay readable on both small and large phones
+    val maxBubbleWidth = LocalConfiguration.current.screenWidthDp.dp * 0.72f
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -285,7 +310,7 @@ private fun MessageBubble(
                         )
                     )
                     .padding(horizontal = 14.dp, vertical = 10.dp)
-                    .widthIn(max = 280.dp)
+                    .widthIn(max = maxBubbleWidth)
             ) {
                 Text(
                     text = message.text,
