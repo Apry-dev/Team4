@@ -48,6 +48,8 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var showForgotDialog by remember { mutableStateOf(false) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
     var forgotEmail by remember { mutableStateOf("") }
     var forgotMessage by remember { mutableStateOf("") }
 
@@ -232,27 +234,42 @@ fun LoginScreen(
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        emailError = when {
+                            it.isBlank() -> null
+                            !android.util.Patterns.EMAIL_ADDRESS.matcher(it).matches() -> "Invalid email address"
+                            else -> null
+                        }
+                    },
                     label = { Text("Email") },
                     leadingIcon = {
-                        Icon(Icons.Default.Email, contentDescription = null, tint = ESNCyan)
+                        Icon(Icons.Default.Email, contentDescription = null, tint = if (emailError != null) MaterialTheme.colorScheme.error else ESNCyan)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
+                    isError = emailError != null,
+                    supportingText = { if (emailError != null) Text(emailError!!) },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
                         focusedLabelColor = ESNCyan,
                     )
                 )
-                Spacer(Modifier.height(14.dp))
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        passwordError = when {
+                            it.isBlank() -> null
+                            it.length < 6 -> "At least 6 characters"
+                            else -> null
+                        }
+                    },
                     label = { Text("Password") },
                     leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = ESNCyan)
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = if (passwordError != null) MaterialTheme.colorScheme.error else ESNCyan)
                     },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -270,6 +287,8 @@ fun LoginScreen(
                                            else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
+                    isError = passwordError != null,
+                    supportingText = { if (passwordError != null) Text(passwordError!!) },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
@@ -313,10 +332,9 @@ fun LoginScreen(
                 Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = {
-                        if (email.isBlank() || password.isBlank()) {
-                            errorMessage = "Please fill in all fields"
-                            return@Button
-                        }
+                        emailError = if (email.isBlank()) "Required" else emailError
+                        passwordError = if (password.isBlank()) "Required" else passwordError
+                        if (email.isBlank() || password.isBlank() || emailError != null || passwordError != null) return@Button
                         isLoading = true
                         errorMessage = ""
                         auth.signInWithEmailAndPassword(email.trim(), password)

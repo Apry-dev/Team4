@@ -214,9 +214,7 @@ fun ProfileScreen(onLogout: () -> Unit = {}) {
         }
 
         when {
-            isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = ESNCyan)
-            }
+            isLoading -> ProfileSkeleton()
             profile == null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Could not load profile.", color = TextSecondary)
             }
@@ -538,6 +536,37 @@ private fun ViewProfileContent(profile: Map<String, Any>, onLogout: () -> Unit) 
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun ProfileSkeleton() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        repeat(3) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.35f).height(14.dp))
+                    repeat(2) {
+                        ShimmerBox(modifier = Modifier.fillMaxWidth().height(12.dp))
+                        ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(12.dp))
+                    }
+                }
+            }
         }
     }
 }

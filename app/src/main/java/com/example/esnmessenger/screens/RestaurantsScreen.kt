@@ -193,17 +193,16 @@ private fun RestaurantCard(dailyMenu: DailyMenu, activeDiet: String?) {
 
             when {
                 dailyMenu.isLoading -> {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CircularProgressIndicator(
-                            color = ESNCyan,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        repeat(3) {
+                            ShimmerBox(modifier = Modifier.fillMaxWidth().height(14.dp))
+                            ShimmerBox(modifier = Modifier.fillMaxWidth(0.6f).height(11.dp))
+                        }
                     }
                 }
                 dailyMenu.error != null -> {
