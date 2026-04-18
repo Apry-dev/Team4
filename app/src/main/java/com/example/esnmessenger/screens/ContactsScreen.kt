@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Badge
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
@@ -51,6 +52,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.example.esnmessenger.model.ChatSummary
 import com.example.esnmessenger.ui.theme.ESNCyan
 import com.example.esnmessenger.ui.theme.ESNCyanDark
@@ -305,7 +309,7 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (photoBitmap != null) {
@@ -314,38 +318,79 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
             )
         } else {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(52.dp)
                     .background(ESNCyanLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = chat.otherUserName.take(1).uppercase(),
                     color = ESNCyanDark,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = chat.otherUserName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = chat.lastMessage,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = chat.otherUserName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = formatChatTimestamp(chat.timestamp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (chat.unreadCount > 0) ESNCyan else TextSecondary
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = chat.lastMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (chat.unreadCount > 0) TextPrimary else TextSecondary,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+                if (chat.unreadCount > 0) {
+                    Badge(
+                        containerColor = ESNCyan,
+                        contentColor = Color.White
+                    ) {
+                        Text(
+                            text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
         }
+    }
+}
+
+private fun formatChatTimestamp(millis: Long): String {
+    if (millis == 0L) return ""
+    val diff = System.currentTimeMillis() - millis
+    return when {
+        diff < 60_000 -> "now"
+        diff < 3_600_000 -> "${diff / 60_000}m"
+        diff < 86_400_000 -> "${diff / 3_600_000}h"
+        diff < 7 * 86_400_000L -> SimpleDateFormat("EEE", Locale.getDefault()).format(Date(millis))
+        else -> SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(millis))
     }
 }

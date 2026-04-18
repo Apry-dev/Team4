@@ -55,6 +55,7 @@ class ChatListViewModel : ViewModel() {
 
                     val lastMessage = doc.getString("lastMessage") ?: ""
                     val timestamp = doc.getLong("timestamp") ?: 0L
+                    val unreadCount = doc.getLong("unreadCount_$currentUserUid")?.toInt() ?: 0
 
                     firestore.collection("users").document(otherUserId).get()
                         .addOnSuccessListener { userDoc ->
@@ -68,7 +69,8 @@ class ChatListViewModel : ViewModel() {
                                     otherUserName = name,
                                     lastMessage = lastMessage,
                                     timestamp = timestamp,
-                                    otherUserPhotoBase64 = userDoc.getString("photoBase64")
+                                    otherUserPhotoBase64 = userDoc.getString("photoBase64"),
+                                    unreadCount = unreadCount
                                 )
                             )
                             remaining--
@@ -81,7 +83,8 @@ class ChatListViewModel : ViewModel() {
                                     otherUserId = otherUserId,
                                     otherUserName = otherUserId,
                                     lastMessage = lastMessage,
-                                    timestamp = timestamp
+                                    timestamp = timestamp,
+                                    unreadCount = unreadCount
                                 )
                             )
                             remaining--
