@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -273,7 +274,9 @@ private fun MealOptionSection(option: MealOption) {
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextPrimary
+                    color = TextPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (item.diets.isNotBlank()) {
                     Text(

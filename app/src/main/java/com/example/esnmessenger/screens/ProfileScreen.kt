@@ -77,7 +77,7 @@ private fun base64ToBitmap(base64: String): Bitmap? = try {
 }
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(onLogout: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -141,7 +141,7 @@ fun ProfileScreen() {
                             contentDescription = "Profile photo",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(100.dp)
                                 .clip(CircleShape)
                                 .border(2.dp, Color.White, CircleShape)
                                 .clickable(enabled = !isUploadingPhoto) { photoPicker.launch("image/*") }
@@ -149,7 +149,7 @@ fun ProfileScreen() {
                     } else {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(100.dp)
                                 .background(Color.White.copy(alpha = 0.25f), CircleShape)
                                 .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                                 .clickable(enabled = !isUploadingPhoto) { photoPicker.launch("image/*") },
@@ -228,7 +228,7 @@ fun ProfileScreen() {
                     isEditing = false
                 }
             )
-            else -> ViewProfileContent(profile!!)
+            else -> ViewProfileContent(profile!!, onLogout)
         }
     }
 }
@@ -438,7 +438,8 @@ private fun EditProfileContent(
 }
 
 @Composable
-private fun ViewProfileContent(profile: Map<String, Any>) {
+private fun ViewProfileContent(profile: Map<String, Any>, onLogout: () -> Unit) {
+    var showSignOutDialog by remember { mutableStateOf(false) }
     val country = profile["country"] as? String ?: ""
     val university = profile["university"] as? String ?: ""
     val major = profile["major"] as? String ?: ""
@@ -512,6 +513,31 @@ private fun ViewProfileContent(profile: Map<String, Any>) {
                     }
                 }
             }
+        }
+
+        TextButton(
+            onClick = { showSignOutDialog = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Sign out", color = MaterialTheme.colorScheme.error)
+        }
+
+        if (showSignOutDialog) {
+            AlertDialog(
+                onDismissRequest = { showSignOutDialog = false },
+                title = { Text("Sign out") },
+                text = { Text("Are you sure you want to sign out?") },
+                confirmButton = {
+                    TextButton(onClick = { showSignOutDialog = false; onLogout() }) {
+                        Text("Sign out", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSignOutDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
