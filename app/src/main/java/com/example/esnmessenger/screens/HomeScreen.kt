@@ -90,7 +90,7 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
                     selected = selectedTab == HomeTab.Restaurants,
                     onClick = { selectedTab = HomeTab.Restaurants },
                     icon = { Icon(Icons.Default.Restaurant, contentDescription = "Restaurants") },
-                    label = { Text("Restaurants") },
+                    label = { Text("Food") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = ESNCyan,
                         selectedTextColor = ESNCyan,
