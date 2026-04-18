@@ -40,7 +40,7 @@ fun StatisticsScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // Gradient header
         Box(
@@ -80,7 +80,7 @@ fun StatisticsScreen() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = ESNCyan)
                     Spacer(Modifier.height(12.dp))
-                    Text("Loading your stats…", color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                    Text("Loading your stats…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         } else {
@@ -127,13 +127,13 @@ fun StatisticsScreen() {
                                 "No stats yet",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 "Start chatting to see your messaging statistics here!",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -209,7 +209,7 @@ fun StatisticsScreen() {
                                             Modifier
                                                 .fillMaxWidth()
                                                 .height(0.5.dp)
-                                                .background(OutlineColor)
+                                                .background(MaterialTheme.colorScheme.outline)
                                         )
                                     }
                                 }
@@ -290,7 +290,7 @@ private fun BigStatCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(Modifier.padding(14.dp)) {
@@ -308,9 +308,9 @@ private fun BigStatCard(
                 value,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Text(label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -324,7 +324,7 @@ private fun SectionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -335,7 +335,7 @@ private fun SectionCard(
                     title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             content()
@@ -409,11 +409,11 @@ private fun StatRow(icon: ImageVector, label: String, value: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(15.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -429,7 +429,7 @@ private fun StreakCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -446,12 +446,12 @@ private fun StreakCard(
                 fontWeight = FontWeight.ExtraBold,
                 color = color
             )
-            Text(unit, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Text(unit, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
             Text(
                 title,
                 style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -471,12 +471,12 @@ private fun TopConvoRow(rank: Int, name: String, count: Int) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(medal, fontSize = 20.sp)
             Spacer(Modifier.width(10.dp))
-            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = TextPrimary)
+            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
         }
         Text(
             "$count msg${if (count != 1) "s" else ""}",
             style = MaterialTheme.typography.bodySmall,
-            color = TextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
