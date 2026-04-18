@@ -108,7 +108,7 @@ fun LoginScreen(
                     Text(
                         "Enter your email and we'll send you a reset link.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
@@ -222,13 +222,13 @@ fun LoginScreen(
                 Text(
                     text = "Welcome back",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Sign in to continue",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(32.dp))
 
@@ -368,9 +368,9 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
-                    Text("  or  ", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text("  or  ", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
@@ -384,7 +384,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     enabled = !isLoading,
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, Color.LightGray)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_google),
@@ -395,7 +395,7 @@ fun LoginScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "Continue with Google",
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -408,7 +408,7 @@ fun LoginScreen(
                 ) {
                     Text(
                         "Don't have an account? ",
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     TextButton(onClick = onNavigateToRegister, contentPadding = PaddingValues(4.dp)) {

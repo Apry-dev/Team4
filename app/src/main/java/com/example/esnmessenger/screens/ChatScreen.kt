@@ -3,6 +3,15 @@ package com.example.esnmessenger.screens
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -93,9 +102,11 @@ fun ChatScreen(
 ) {
     val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val messages by chatViewModel.messages.collectAsState()
+    val isLoading by chatViewModel.isLoading.collectAsState()
     val error by chatViewModel.error.collectAsState()
     val otherUserName by chatViewModel.otherUserName.collectAsState()
     val otherUserPhotoBase64 by chatViewModel.otherUserPhotoBase64.collectAsState()
+    val otherUserIsTyping by chatViewModel.otherUserIsTyping.collectAsState()
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -107,10 +118,9 @@ fun ChatScreen(
         chatViewModel.loadMessages(otherUserId)
     }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+    LaunchedEffect(messages.size, otherUserIsTyping) {
+        val itemCount = messages.size + (if (otherUserIsTyping) 1 else 0)
+        if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
     }
 
     Column(
@@ -160,22 +170,34 @@ fun ChatScreen(
             )
         }
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
-        ) {
-            items(messages, key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    isMine = message.fromId == currentUid,
-                    otherUserBitmap = otherUserBitmap,
-                    otherUserName = otherUserName
-                )
+        if (isLoading) {
+            ChatSkeleton(modifier = Modifier.weight(1f))
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                items(messages, key = { it.id }) { message ->
+                    MessageBubble(
+                        message = message,
+                        isMine = message.fromId == currentUid,
+                        otherUserBitmap = otherUserBitmap,
+                        otherUserName = otherUserName
+                    )
+                }
+                if (otherUserIsTyping) {
+                    item(key = "typing_indicator") {
+                        TypingBubble(
+                            otherUserBitmap = otherUserBitmap,
+                            otherUserName = otherUserName
+                        )
+                    }
+                }
             }
         }
 
@@ -194,7 +216,10 @@ fun ChatScreen(
             ) {
                 OutlinedTextField(
                     value = inputText,
-                    onValueChange = { inputText = it },
+                    onValueChange = {
+                        inputText = it
+                        chatViewModel.updateTypingState(it.isNotBlank())
+                    },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Message...") },
                     shape = RoundedCornerShape(24.dp),
@@ -209,7 +234,7 @@ fun ChatScreen(
                     }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
-                        unfocusedBorderColor = OutlineColor
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     )
                 )
                 Spacer(Modifier.width(8.dp))
@@ -235,6 +260,124 @@ fun ChatScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TypingBubble(otherUserBitmap: Bitmap?, otherUserName: String?) {
+    val transition = rememberInfiniteTransition(label = "typing_dots")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart),
+        label = "typing_phase"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        if (otherUserBitmap != null) {
+            Image(
+                bitmap = otherUserBitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(28.dp).clip(CircleShape)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(ESNCyan.copy(alpha = 0.2f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = otherUserName?.take(1)?.uppercase() ?: "?",
+                    color = ESNCyan,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp
+                )
+            }
+        }
+        Spacer(Modifier.width(6.dp))
+        Box(
+            modifier = Modifier
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(3) { index ->
+                    val dotPhase = ((phase + index * 0.33f) % 1f)
+                    val alpha = when {
+                        dotPhase < 0.5f -> 0.3f + dotPhase * 1.4f
+                        else -> 1f - (dotPhase - 0.5f) * 1.4f
+                    }.coerceIn(0.3f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                                CircleShape
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatSkeleton(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "chat_shimmer")
+    val x by transition.animateFloat(
+        initialValue = 0f, targetValue = 1400f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
+        label = "chat_shimmer_x"
+    )
+    val shimmer = listOf(
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+    )
+    val brush = Brush.linearGradient(shimmer,
+        start = androidx.compose.ui.geometry.Offset(x - 400f, 0f),
+        end = androidx.compose.ui.geometry.Offset(x, 0f))
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Incoming
+        Row(verticalAlignment = Alignment.Bottom) {
+            Box(Modifier.size(28.dp).background(brush, CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.fillMaxWidth(0.55f).height(40.dp).background(brush, RoundedCornerShape(16.dp)))
+        }
+        // Outgoing
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box(Modifier.fillMaxWidth(0.6f).height(32.dp).background(brush, RoundedCornerShape(16.dp)))
+        }
+        // Incoming
+        Row(verticalAlignment = Alignment.Bottom) {
+            Box(Modifier.size(28.dp).background(brush, CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.fillMaxWidth(0.45f).height(32.dp).background(brush, RoundedCornerShape(16.dp)))
+        }
+        // Outgoing
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box(Modifier.fillMaxWidth(0.7f).height(48.dp).background(brush, RoundedCornerShape(16.dp)))
         }
     }
 }
@@ -291,7 +434,7 @@ private fun MessageBubble(
             Box(
                 modifier = Modifier
                     .background(
-                        color = if (isMine) ESNCyan else SurfaceVariant,
+                        color = if (isMine) ESNCyan else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(
                             topStart = 16.dp,
                             topEnd = 16.dp,
@@ -304,7 +447,7 @@ private fun MessageBubble(
             ) {
                 Text(
                     text = message.text,
-                    color = if (isMine) Color.White else TextPrimary,
+                    color = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -315,14 +458,14 @@ private fun MessageBubble(
             ) {
                 Text(
                     text = timeText,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp
                 )
                 if (isMine) {
                     Icon(
                         imageVector = if (message.read) Icons.Default.DoneAll else Icons.Default.Done,
                         contentDescription = if (message.read) "Read" else "Sent",
-                        tint = if (message.read) ESNCyan else TextSecondary,
+                        tint = if (message.read) ESNCyan else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                 }

@@ -265,7 +265,7 @@ private fun OverviewGrid(stats: MessagingStats) {
                 label = "Conversations",
                 value = stats.totalConversations.toString(),
                 icon = Icons.Default.Group,
-                tint = ESNCyanDark,
+                tint = ESNCyan,
                 modifier = Modifier.weight(1f)
             )
             BigStatCard(

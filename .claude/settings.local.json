@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Start-Process msiexec.exe -ArgumentList ''/i'', ''C:\\\\Users\\\\Marcos Marin\\\\Downloads\\\\gh_installer.msi'', ''/quiet'', ''/norestart'' -Wait\")",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh --version)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/Marcos Marin/AppData/**)",
+      "Bash(powershell -Command \"Get-Command gh -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell -Command \"& 'C:\\\\\\\\Program Files\\\\\\\\GitHub CLI\\\\\\\\gh.exe' --version 2>&1\")",
+      "Bash(./gradlew --stop)",
+      "Bash(keytool -list -v -keystore $USERPROFILE/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android)",
+      "WebSearch",
+      "WebFetch(domain:oamk.fi)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:juvenes.fi)",
+      "WebFetch(domain:fi.jamix.cloud)",
+      "WebFetch(domain:esnoulu.org)",
+      "WebFetch(domain:events.esnfinland.eu)",
+      "WebFetch(domain:esn.docs.apiary.io)",
+      "WebFetch(domain:activities.esn.org)",
+      "WebFetch(domain:accounts.esn.org)",
+      "WebFetch(domain:esnfinland.eu)",
+      "Bash(gradlew.bat assembleDebug)",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug\")",
+      "Bash(cmd.exe /c \"cd \\\\\"C:\\\\Users\\\\Marcos Marin\\\\Team4\\\\\" && gradlew.bat assembleDebug 2>&1\")",
+      "Bash(cmd.exe /c \"cd \"\"C:\\\\Users\\\\Marcos Marin\\\\Team4\"\" && gradlew.bat assembleDebug\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\Marcos Marin\\\\Team4'; .\\\\gradlew.bat assembleDebug 2>&1 | Out-String\" 2>&1)",
+      "Bash(sed *)",
+      "Bash(python3 'C:\\\\Users\\\\Marcos Marin\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.5.0\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py' \"university student social messaging community mobile\" --design-system -p \"ESN Messenger\" -f markdown)",
+      "Bash(python *)",
+      "Bash(./gradlew assembleDebug)"
+    ]
+  }
+}

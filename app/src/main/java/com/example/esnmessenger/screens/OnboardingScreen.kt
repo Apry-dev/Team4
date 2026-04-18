@@ -1,5 +1,12 @@
 package com.example.esnmessenger.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -85,95 +92,105 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
             }
         }
 
-        when (step) {
-            1 -> StepOne(
-                name = name,
-                onNameChange = { name = it },
-                country = country,
-                onCountryChange = { country = it },
-                university = university,
-                onUniversityChange = { university = it },
-                studentType = studentType,
-                onStudentTypeChange = { studentType = it },
-                errorMessage = errorMessage,
-                onNext = {
-                    if (name.isBlank() || country.isBlank() || university.isBlank() || studentType.isBlank()) {
-                        errorMessage = "Please fill in all fields"
-                    } else {
-                        errorMessage = ""
-                        step = 2
-                    }
-                }
-            )
-            2 -> StepTwo(
-                major = major,
-                onMajorChange = { major = it },
-                year = year,
-                onYearChange = { year = it },
-                errorMessage = errorMessage,
-                onBack = { step = 1 },
-                onNext = {
-                    if (major.isBlank() || year.isBlank()) {
-                        errorMessage = "Please fill in all fields"
-                    } else {
-                        errorMessage = ""
-                        step = 3
-                    }
-                }
-            )
-            3 -> StepThree(
-                selectedInterests = selectedInterests,
-                onInterestToggle = { interest ->
-                    selectedInterests = if (interest in selectedInterests)
-                        selectedInterests - interest
-                    else
-                        selectedInterests + interest
-                },
-                selectedLanguages = selectedLanguages,
-                onLanguageToggle = { lang ->
-                    selectedLanguages = if (lang in selectedLanguages)
-                        selectedLanguages - lang
-                    else
-                        selectedLanguages + lang
-                },
-                errorMessage = errorMessage,
-                isLoading = isLoading,
-                onBack = { step = 2 },
-                onFinish = {
-                    if (selectedInterests.isEmpty()) {
-                        errorMessage = "Select at least one interest"
-                        return@StepThree
-                    }
-                    if (selectedLanguages.isEmpty()) {
-                        errorMessage = "Select at least one language"
-                        return@StepThree
-                    }
-                    isLoading = true
-                    errorMessage = ""
-                    val currentUser = FirebaseAuth.getInstance().currentUser ?: return@StepThree
-                    val uid = currentUser.uid
-                    val profile = hashMapOf(
-                        "email" to email.trim().lowercase(),
-                        "name" to name,
-                        "country" to country,
-                        "university" to university,
-                        "studentType" to studentType,
-                        "major" to major,
-                        "year" to year,
-                        "interests" to selectedInterests.toList(),
-                        "languages" to selectedLanguages.toList()
-                    )
-                    FirebaseFirestore.getInstance()
-                        .collection("users")
-                        .document(uid)
-                        .set(profile)
-                        .addOnSuccessListener { onOnboardingComplete() }
-                        .addOnFailureListener {
-                            isLoading = false
-                            errorMessage = "Failed to save profile. Try again."
+        AnimatedContent(
+            targetState = step,
+            transitionSpec = {
+                val direction = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(tween(280)) { it * direction } + fadeIn(tween(280))) togetherWith
+                (slideOutHorizontally(tween(220)) { -it * direction } + fadeOut(tween(180)))
+            },
+            label = "onboarding_step"
+        ) { currentStep ->
+            when (currentStep) {
+                1 -> StepOne(
+                    name = name,
+                    onNameChange = { name = it },
+                    country = country,
+                    onCountryChange = { country = it },
+                    university = university,
+                    onUniversityChange = { university = it },
+                    studentType = studentType,
+                    onStudentTypeChange = { studentType = it },
+                    errorMessage = errorMessage,
+                    onNext = {
+                        if (name.isBlank() || country.isBlank() || university.isBlank() || studentType.isBlank()) {
+                            errorMessage = "Please fill in all fields"
+                        } else {
+                            errorMessage = ""
+                            step = 2
                         }
-                }
-            )
+                    }
+                )
+                2 -> StepTwo(
+                    major = major,
+                    onMajorChange = { major = it },
+                    year = year,
+                    onYearChange = { year = it },
+                    errorMessage = errorMessage,
+                    onBack = { step = 1 },
+                    onNext = {
+                        if (major.isBlank() || year.isBlank()) {
+                            errorMessage = "Please fill in all fields"
+                        } else {
+                            errorMessage = ""
+                            step = 3
+                        }
+                    }
+                )
+                else -> StepThree(
+                    selectedInterests = selectedInterests,
+                    onInterestToggle = { interest ->
+                        selectedInterests = if (interest in selectedInterests)
+                            selectedInterests - interest
+                        else
+                            selectedInterests + interest
+                    },
+                    selectedLanguages = selectedLanguages,
+                    onLanguageToggle = { lang ->
+                        selectedLanguages = if (lang in selectedLanguages)
+                            selectedLanguages - lang
+                        else
+                            selectedLanguages + lang
+                    },
+                    errorMessage = errorMessage,
+                    isLoading = isLoading,
+                    onBack = { step = 2 },
+                    onFinish = {
+                        if (selectedInterests.isEmpty()) {
+                            errorMessage = "Select at least one interest"
+                            return@StepThree
+                        }
+                        if (selectedLanguages.isEmpty()) {
+                            errorMessage = "Select at least one language"
+                            return@StepThree
+                        }
+                        isLoading = true
+                        errorMessage = ""
+                        val currentUser = FirebaseAuth.getInstance().currentUser ?: return@StepThree
+                        val uid = currentUser.uid
+                        val profile = hashMapOf(
+                            "email" to email.trim().lowercase(),
+                            "name" to name,
+                            "country" to country,
+                            "university" to university,
+                            "studentType" to studentType,
+                            "major" to major,
+                            "year" to year,
+                            "interests" to selectedInterests.toList(),
+                            "languages" to selectedLanguages.toList()
+                        )
+                        FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(uid)
+                            .set(profile)
+                            .addOnSuccessListener { onOnboardingComplete() }
+                            .addOnFailureListener {
+                                isLoading = false
+                                errorMessage = "Failed to save profile. Try again."
+                            }
+                    }
+                )
+            }
         }
     }
 }
@@ -186,6 +203,11 @@ private fun StepOne(
     studentType: String, onStudentTypeChange: (String) -> Unit,
     errorMessage: String, onNext: () -> Unit
 ) {
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var countryError by remember { mutableStateOf<String?>(null) }
+    var universityError by remember { mutableStateOf<String?>(null) }
+    var studentTypeError by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -195,24 +217,26 @@ private fun StepOne(
         Text(
             "Let's get started!",
             style = MaterialTheme.typography.headlineMedium,
-            color = TextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(Modifier.height(4.dp))
         Text(
             "Tell us a bit about yourself",
             style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(28.dp))
 
-        Text("Full Name", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Text("Full Name", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = name,
-            onValueChange = onNameChange,
+            onValueChange = { onNameChange(it); nameError = if (it.isBlank()) "Required" else null },
             placeholder = { Text("Enter your full name") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            isError = nameError != null,
+            supportingText = { if (nameError != null) Text(nameError!!) },
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = ESNCyan,
@@ -220,24 +244,30 @@ private fun StepOne(
             )
         )
 
-        Spacer(Modifier.height(20.dp))
-        Text("Country", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(12.dp))
+        Text("Country", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         CountryDropdown(
             value = country,
-            onValueChange = onCountryChange,
+            onValueChange = { onCountryChange(it); countryError = null },
             modifier = Modifier.fillMaxWidth()
         )
+        if (countryError != null) {
+            Text(countryError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+        }
 
-        Spacer(Modifier.height(20.dp))
-        Text("University", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(12.dp))
+        Text("University", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = university,
-            onValueChange = onUniversityChange,
+            onValueChange = { onUniversityChange(it); universityError = if (it.isBlank()) "Required" else null },
             placeholder = { Text("Your university") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            isError = universityError != null,
+            supportingText = { if (universityError != null) Text(universityError!!) },
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = ESNCyan,
@@ -245,14 +275,14 @@ private fun StepOne(
             )
         )
 
-        Spacer(Modifier.height(20.dp))
-        Text("Student Type", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(12.dp))
+        Text("Student Type", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             STUDENT_TYPES.forEach { type ->
                 FilterChip(
                     selected = studentType == type,
-                    onClick = { onStudentTypeChange(type) },
+                    onClick = { onStudentTypeChange(type); studentTypeError = null },
                     label = { Text(type) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = ESNCyan,
@@ -262,27 +292,22 @@ private fun StepOne(
                 )
             }
         }
-
-        if (errorMessage.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    errorMessage,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
-            }
+        if (studentTypeError != null) {
+            Text(studentTypeError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp))
         }
 
         Spacer(Modifier.height(32.dp))
         Button(
-            onClick = onNext,
+            onClick = {
+                nameError = if (name.isBlank()) "Required" else null
+                countryError = if (country.isBlank()) "Required" else null
+                universityError = if (university.isBlank()) "Required" else null
+                studentTypeError = if (studentType.isBlank()) "Select a type" else null
+                if (name.isNotBlank() && country.isNotBlank() && university.isNotBlank() && studentType.isNotBlank()) {
+                    onNext()
+                }
+            },
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
@@ -298,6 +323,9 @@ private fun StepTwo(
     year: String, onYearChange: (String) -> Unit,
     errorMessage: String, onBack: () -> Unit, onNext: () -> Unit
 ) {
+    var majorError by remember { mutableStateOf<String?>(null) }
+    var yearError by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -306,25 +334,27 @@ private fun StepTwo(
     ) {
         Text(
             "Academic Details", style = MaterialTheme.typography.headlineMedium,
-            color = TextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(Modifier.height(4.dp))
         Text(
             "Help us match you with the right people",
             style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(28.dp))
 
-        Text("Major / Field of Study", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Text("Major / Field of Study", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = major,
-            onValueChange = onMajorChange,
+            onValueChange = { onMajorChange(it); majorError = if (it.isBlank()) "Required" else null },
             placeholder = { Text("e.g. Computer Science") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             singleLine = true,
+            isError = majorError != null,
+            supportingText = { if (majorError != null) Text(majorError!!) },
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = ESNCyan,
@@ -332,8 +362,8 @@ private fun StepTwo(
             )
         )
 
-        Spacer(Modifier.height(20.dp))
-        Text("Year of Study", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(12.dp))
+        Text("Year of Study", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         @OptIn(ExperimentalLayoutApi::class)
         FlowRow(
@@ -343,7 +373,7 @@ private fun StepTwo(
             YEARS.forEach { y ->
                 FilterChip(
                     selected = year == y,
-                    onClick = { onYearChange(y) },
+                    onClick = { onYearChange(y); yearError = null },
                     label = { Text(y) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = ESNCyan,
@@ -353,22 +383,9 @@ private fun StepTwo(
                 )
             }
         }
-
-        if (errorMessage.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    errorMessage,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
-            }
+        if (yearError != null) {
+            Text(yearError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp))
         }
 
         Spacer(Modifier.height(32.dp))
@@ -381,7 +398,11 @@ private fun StepTwo(
                 Text("Back", style = MaterialTheme.typography.labelLarge)
             }
             Button(
-                onClick = onNext,
+                onClick = {
+                    majorError = if (major.isBlank()) "Required" else null
+                    yearError = if (year.isBlank()) "Select a year" else null
+                    if (major.isNotBlank() && year.isNotBlank()) onNext()
+                },
                 modifier = Modifier.weight(1f).height(52.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
@@ -417,13 +438,13 @@ private fun StepThree(
             Text(
                 "Your Interests",
                 style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 "What do you enjoy doing?",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(20.dp))
 
@@ -437,9 +458,7 @@ private fun StepThree(
                     FilterChip(
                         selected = selected,
                         onClick = { onInterestToggle(interest) },
-                        label = {
-                            Text("${INTEREST_EMOJIS[interest] ?: ""} $interest")
-                        },
+                        label = { Text(interest) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = ESNMagenta,
                             selectedLabelColor = Color.White,
@@ -453,13 +472,13 @@ private fun StepThree(
             Text(
                 "Languages you speak",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 "Select all that apply",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(12.dp))
 

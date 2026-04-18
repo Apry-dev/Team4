@@ -20,11 +20,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.Badge
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,8 +65,6 @@ import com.example.esnmessenger.ui.theme.ESNCyan
 import com.example.esnmessenger.ui.theme.ESNCyanDark
 import com.example.esnmessenger.ui.theme.ESNCyanLight
 import com.example.esnmessenger.ui.theme.OutlineColor
-import com.example.esnmessenger.ui.theme.TextPrimary
-import com.example.esnmessenger.ui.theme.TextSecondary
 import com.example.esnmessenger.viewmodel.ChatListViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -177,7 +180,7 @@ fun ExistingChatsTab(
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = ESNCyan,
-                    unfocusedBorderColor = OutlineColor
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
         }
@@ -196,7 +199,7 @@ fun ExistingChatsTab(
                             Text(
                                 text = "No users found",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -211,19 +214,24 @@ fun ExistingChatsTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(text = "💬", fontSize = 48.sp)
+                    Icon(
+                        imageVector = Icons.Default.Forum,
+                        contentDescription = null,
+                        modifier = Modifier.size(56.dp),
+                        tint = ESNCyan.copy(alpha = 0.45f)
+                    )
                     Spacer(Modifier.height(16.dp))
                     Text(
                         text = "No active chats yet",
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "Tap the search icon above to find someone",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -239,11 +247,16 @@ fun ExistingChatsTab(
 
 @Composable
 private fun UserSearchResultItem(name: String, email: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.97f else 1f, label = "search_item_scale")
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clickable { onClick() },
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -255,7 +268,7 @@ private fun UserSearchResultItem(name: String, email: String, onClick: () -> Uni
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .background(ESNCyanLight, CircleShape),
+                    .background(ESNCyan.copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -273,13 +286,13 @@ private fun UserSearchResultItem(name: String, email: String, onClick: () -> Uni
                         text = name,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Text(
                     text = email,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Icon(
@@ -305,10 +318,15 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
         }
     }
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.97f else 1f, label = "chat_item_scale")
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -325,12 +343,12 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .background(ESNCyanLight, CircleShape),
+                    .background(ESNCyan.copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = chat.otherUserName.take(1).uppercase(),
-                    color = ESNCyanDark,
+                    color = ESNCyan,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
                 )
@@ -353,7 +371,7 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
                 Text(
                     text = formatChatTimestamp(chat.timestamp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (chat.unreadCount > 0) ESNCyan else TextSecondary
+                    color = if (chat.unreadCount > 0) ESNCyan else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Row(
@@ -363,7 +381,7 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
                 Text(
                     text = chat.lastMessage,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (chat.unreadCount > 0) TextPrimary else TextSecondary,
+                    color = if (chat.unreadCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )

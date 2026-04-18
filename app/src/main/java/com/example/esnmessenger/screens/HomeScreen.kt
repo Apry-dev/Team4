@@ -1,5 +1,10 @@
 package com.example.esnmessenger.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -84,11 +89,17 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            when (selectedTab) {
-                HomeTab.Chats -> ExistingChatsTab(onOpenChat = onOpenChat)
-                HomeTab.Food -> RestaurantsScreen()
-                HomeTab.Statistics -> StatisticsScreen()
-                HomeTab.Profile -> ProfileScreen(onLogout = onLogout)
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+                label = "tab_transition"
+            ) { tab ->
+                when (tab) {
+                    HomeTab.Chats -> ExistingChatsTab(onOpenChat = onOpenChat)
+                    HomeTab.Food -> RestaurantsScreen()
+                    HomeTab.Statistics -> StatisticsScreen()
+                    HomeTab.Profile -> ProfileScreen(onLogout = onLogout)
+                }
             }
         }
     }

@@ -216,7 +216,7 @@ fun ProfileScreen(onLogout: () -> Unit = {}) {
         when {
             isLoading -> ProfileSkeleton()
             profile == null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Could not load profile.", color = TextSecondary)
+                Text("Could not load profile.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             isEditing -> EditProfileContent(
                 profile = profile!!,
@@ -288,7 +288,7 @@ private fun EditProfileContent(
 
         // Student type
         Column {
-            Text("Student Type", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            Text("Student Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 STUDENT_TYPES.forEach { type ->
@@ -319,7 +319,7 @@ private fun EditProfileContent(
 
         // Year
         Column {
-            Text("Year of Study", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            Text("Year of Study", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -339,7 +339,7 @@ private fun EditProfileContent(
 
         // Interests
         Column {
-            Text("Interests", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            Text("Interests", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -351,7 +351,7 @@ private fun EditProfileContent(
                             selectedInterests = if (selected) selectedInterests - interest
                             else selectedInterests + interest
                         },
-                        label = { Text("${INTEREST_EMOJIS[interest] ?: ""} $interest") },
+                        label = { Text(interest) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = ESNMagenta,
                             selectedLabelColor = Color.White
@@ -363,7 +363,7 @@ private fun EditProfileContent(
 
         // Languages
         Column {
-            Text("Languages", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            Text("Languages", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -475,10 +475,10 @@ private fun ViewProfileContent(profile: Map<String, Any>, onLogout: () -> Unit) 
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     languages.forEach { lang ->
-                        Surface(shape = RoundedCornerShape(20.dp), color = ESNCyan.copy(alpha = 0.12f)) {
+                        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
                             Text(
                                 text = lang,
-                                color = ESNCyanDark,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -498,10 +498,9 @@ private fun ViewProfileContent(profile: Map<String, Any>, onLogout: () -> Unit) 
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     interests.forEach { interest ->
-                        val emoji = INTEREST_EMOJIS[interest] ?: ""
                         Surface(shape = RoundedCornerShape(20.dp), color = ESNMagenta.copy(alpha = 0.12f)) {
                             Text(
-                                text = "$emoji $interest",
+                                text = interest,
                                 color = ESNMagenta,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
@@ -584,7 +583,7 @@ private fun ProfileCard(title: String, content: @Composable ColumnScope.() -> Un
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = ESNCyanDark,
+                color = ESNCyan,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             content()
@@ -599,7 +598,7 @@ private fun ProfileRow(label: String, value: String) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.width(90.dp))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(90.dp))
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -102,7 +103,7 @@ fun RestaurantsScreen(viewModel: RestaurantsViewModel = viewModel()) {
             Text(
                 text = "Diet:",
                 style = MaterialTheme.typography.labelMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             // "All" chip to clear filter
             FilterChip(
@@ -158,10 +159,15 @@ private fun RestaurantCard(dailyMenu: DailyMenu, activeDiet: String?) {
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .background(ESNCyanLight, RoundedCornerShape(12.dp)),
+                        .background(ESNCyan.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "🍽", fontSize = 22.sp)
+                    Icon(
+                        imageVector = Icons.Default.Restaurant,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = ESNCyan
+                    )
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -169,7 +175,7 @@ private fun RestaurantCard(dailyMenu: DailyMenu, activeDiet: String?) {
                         text = dailyMenu.restaurant.name,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Surface(
                         shape = RoundedCornerShape(6.dp),
@@ -178,7 +184,7 @@ private fun RestaurantCard(dailyMenu: DailyMenu, activeDiet: String?) {
                     ) {
                         Text(
                             text = dailyMenu.restaurant.campus,
-                            color = ESNCyanDark,
+                            color = ESNCyan,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -219,7 +225,7 @@ private fun RestaurantCard(dailyMenu: DailyMenu, activeDiet: String?) {
                         Text(
                             text = if (activeDiet != null) "No items match the selected filter"
                                    else "No menu available today",
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
@@ -258,7 +264,7 @@ private fun MealOptionSection(option: MealOption) {
             text = option.name,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = ESNCyanDark,
+            color = ESNCyan,
             modifier = Modifier.padding(bottom = 6.dp)
         )
     }
@@ -273,7 +279,7 @@ private fun MealOptionSection(option: MealOption) {
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -281,7 +287,7 @@ private fun MealOptionSection(option: MealOption) {
                     Text(
                         text = item.diets,
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -290,7 +296,7 @@ private fun MealOptionSection(option: MealOption) {
                     text = "€${item.price}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = ESNCyanDark,
+                    color = ESNCyan,
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }

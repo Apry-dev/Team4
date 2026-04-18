@@ -50,6 +50,10 @@ fun RegisterScreen(
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    var confirmPasswordError by remember { mutableStateOf<String?>(null) }
+
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
 
@@ -137,33 +141,59 @@ fun RegisterScreen(
                 Text(
                     text = "Your details",
                     style = MaterialTheme.typography.titleMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(20.dp))
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        emailError = when {
+                            it.isBlank() -> null
+                            !android.util.Patterns.EMAIL_ADDRESS.matcher(it).matches() -> "Invalid email address"
+                            else -> null
+                        }
+                    },
                     label = { Text("Email") },
                     leadingIcon = {
-                        Icon(Icons.Default.Email, contentDescription = null, tint = ESNCyan)
+                        Icon(
+                            Icons.Default.Email,
+                            contentDescription = null,
+                            tint = if (emailError != null) MaterialTheme.colorScheme.error else ESNCyan
+                        )
                     },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
+                    isError = emailError != null,
+                    supportingText = { if (emailError != null) Text(emailError!!) },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
                         focusedLabelColor = ESNCyan,
                     )
                 )
-                Spacer(Modifier.height(14.dp))
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        passwordError = when {
+                            it.isBlank() -> null
+                            it.length < 6 -> "At least 6 characters"
+                            else -> null
+                        }
+                        if (confirmPassword.isNotBlank()) {
+                            confirmPasswordError = if (it != confirmPassword) "Passwords don't match" else null
+                        }
+                    },
                     label = { Text("Password") },
                     leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = ESNCyan)
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (passwordError != null) MaterialTheme.colorScheme.error else ESNCyan
+                        )
                     },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -181,19 +211,31 @@ fun RegisterScreen(
                                            else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
+                    isError = passwordError != null,
+                    supportingText = { if (passwordError != null) Text(passwordError!!) },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
                         focusedLabelColor = ESNCyan,
                     )
                 )
-                Spacer(Modifier.height(14.dp))
                 OutlinedTextField(
                     value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
+                    onValueChange = {
+                        confirmPassword = it
+                        confirmPasswordError = when {
+                            it.isBlank() -> null
+                            it != password -> "Passwords don't match"
+                            else -> null
+                        }
+                    },
                     label = { Text("Confirm Password") },
                     leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = ESNCyan)
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (confirmPasswordError != null) MaterialTheme.colorScheme.error else ESNCyan
+                        )
                     },
                     trailingIcon = {
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
@@ -211,6 +253,8 @@ fun RegisterScreen(
                                            else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
+                    isError = confirmPasswordError != null,
+                    supportingText = { if (confirmPasswordError != null) Text(confirmPasswordError!!) },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ESNCyan,
@@ -238,25 +282,23 @@ fun RegisterScreen(
                 Spacer(Modifier.height(28.dp))
                 Button(
                     onClick = {
-                        when {
-                            email.isBlank() || password.isBlank() -> errorMessage = "Please fill in all fields"
-                            password != confirmPassword -> errorMessage = "Passwords don't match"
-                            password.length < 6 -> errorMessage = "Password must be at least 6 characters"
-                            else -> {
-                                isLoading = true
-                                errorMessage = ""
-                                auth.createUserWithEmailAndPassword(email.trim(), password)
-                                    .addOnCompleteListener { task ->
-                                        isLoading = false
-                                        if (task.isSuccessful) {
-                                            task.result?.user?.sendEmailVerification()
-                                            onRegisterSuccess(task.result?.user?.email ?: email.trim())
-                                        } else {
-                                            errorMessage = task.exception?.message ?: "Registration failed"
-                                        }
-                                    }
+                        emailError = if (email.isBlank()) "Required" else emailError
+                        passwordError = if (password.isBlank()) "Required" else passwordError
+                        confirmPasswordError = if (confirmPassword.isBlank()) "Required" else confirmPasswordError
+                        if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()
+                            || emailError != null || passwordError != null || confirmPasswordError != null) return@Button
+                        isLoading = true
+                        errorMessage = ""
+                        auth.createUserWithEmailAndPassword(email.trim(), password)
+                            .addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) {
+                                    task.result?.user?.sendEmailVerification()
+                                    onRegisterSuccess(task.result?.user?.email ?: email.trim())
+                                } else {
+                                    errorMessage = task.exception?.message ?: "Registration failed"
+                                }
                             }
-                        }
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     enabled = !isLoading,
@@ -282,9 +324,13 @@ fun RegisterScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
-                    Text("  or  ", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(
+                        "  or  ",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
@@ -298,7 +344,7 @@ fun RegisterScreen(
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     enabled = !isLoading,
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, Color.LightGray)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_google),
@@ -309,7 +355,7 @@ fun RegisterScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "Continue with Google",
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -322,7 +368,7 @@ fun RegisterScreen(
                 ) {
                     Text(
                         "Already have an account? ",
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     TextButton(onClick = onNavigateToLogin, contentPadding = PaddingValues(4.dp)) {
