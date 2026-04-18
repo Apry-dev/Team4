@@ -35,8 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.esnmessenger.model.COUNTRY_FLAGS
 import com.example.esnmessenger.model.INTEREST_EMOJIS
 import com.example.esnmessenger.model.INTERESTS
+import com.example.esnmessenger.model.LANGUAGES
 import com.example.esnmessenger.model.STUDENT_TYPES
 import com.example.esnmessenger.model.YEARS
 import com.example.esnmessenger.ui.theme.*
@@ -121,6 +123,8 @@ fun ProfileScreen() {
     ) {
         val name = profile?.get("name") as? String ?: ""
         val studentType = profile?.get("studentType") as? String ?: ""
+        val country = profile?.get("country") as? String ?: ""
+        val flag = COUNTRY_FLAGS.entries.find { it.key.equals(country, ignoreCase = true) }?.value
 
         // Header
         Box(
@@ -174,7 +178,12 @@ fun ProfileScreen() {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(text = name.ifEmpty { "—" }, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (flag != null) "$flag ${name.ifEmpty { "—" }}" else name.ifEmpty { "—" },
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 if (studentType.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.2f)) {
@@ -231,12 +240,15 @@ private fun EditProfileContent(
     onSaved: (Map<String, Any>) -> Unit
 ) {
     var name by remember { mutableStateOf(profile["name"] as? String ?: "") }
+    var country by remember { mutableStateOf(profile["country"] as? String ?: "") }
     var university by remember { mutableStateOf(profile["university"] as? String ?: "") }
     var studentType by remember { mutableStateOf(profile["studentType"] as? String ?: "") }
     var major by remember { mutableStateOf(profile["major"] as? String ?: "") }
     var year by remember { mutableStateOf(profile["year"] as? String ?: "") }
     @Suppress("UNCHECKED_CAST")
     var selectedInterests by remember { mutableStateOf((profile["interests"] as? List<String> ?: emptyList()).toSet()) }
+    @Suppress("UNCHECKED_CAST")
+    var selectedLanguages by remember { mutableStateOf((profile["languages"] as? List<String> ?: emptyList()).toSet()) }
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
@@ -256,6 +268,13 @@ private fun EditProfileContent(
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ESNCyan, focusedLabelColor = ESNCyan)
+        )
+
+        // Country
+        CountryDropdown(
+            value = country,
+            onValueChange = { country = it },
+            modifier = Modifier.fillMaxWidth()
         )
 
         // University
@@ -344,13 +363,37 @@ private fun EditProfileContent(
             }
         }
 
+        // Languages
+        Column {
+            Text("Languages", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LANGUAGES.forEach { lang ->
+                    val selected = lang in selectedLanguages
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            selectedLanguages = if (selected) selectedLanguages - lang
+                            else selectedLanguages + lang
+                        },
+                        label = { Text(lang) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ESNCyan,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+        }
+
         if (errorMessage.isNotEmpty()) {
             Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
 
         Button(
             onClick = {
-                if (name.isBlank() || university.isBlank() || major.isBlank() || studentType.isBlank() || year.isBlank()) {
+                if (name.isBlank() || country.isBlank() || university.isBlank() || major.isBlank() || studentType.isBlank() || year.isBlank()) {
                     errorMessage = "Please fill in all fields"
                     return@Button
                 }
@@ -362,11 +405,13 @@ private fun EditProfileContent(
                 errorMessage = ""
                 val updates = mapOf(
                     "name" to name,
+                    "country" to country,
                     "university" to university,
                     "studentType" to studentType,
                     "major" to major,
                     "year" to year,
-                    "interests" to selectedInterests.toList()
+                    "interests" to selectedInterests.toList(),
+                    "languages" to selectedLanguages.toList()
                 )
                 FirebaseFirestore.getInstance().collection("users").document(uid)
                     .update(updates)
@@ -394,12 +439,15 @@ private fun EditProfileContent(
 
 @Composable
 private fun ViewProfileContent(profile: Map<String, Any>) {
+    val country = profile["country"] as? String ?: ""
     val university = profile["university"] as? String ?: ""
     val major = profile["major"] as? String ?: ""
     val year = profile["year"] as? String ?: ""
     val email = profile["email"] as? String ?: ""
     @Suppress("UNCHECKED_CAST")
     val interests = profile["interests"] as? List<String> ?: emptyList()
+    @Suppress("UNCHECKED_CAST")
+    val languages = profile["languages"] as? List<String> ?: emptyList()
 
     Column(
         modifier = Modifier
@@ -408,11 +456,38 @@ private fun ViewProfileContent(profile: Map<String, Any>) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ProfileCard(title = "Academic Info") {
+        ProfileCard(title = "About") {
             ProfileRow(label = "Email", value = email)
+            ProfileRow(label = "Country", value = country)
+        }
+
+        ProfileCard(title = "Academic Info") {
             ProfileRow(label = "University", value = university)
             ProfileRow(label = "Major", value = major)
             ProfileRow(label = "Year", value = year)
+        }
+
+        if (languages.isNotEmpty()) {
+            ProfileCard(title = "Languages") {
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    languages.forEach { lang ->
+                        Surface(shape = RoundedCornerShape(20.dp), color = ESNCyan.copy(alpha = 0.12f)) {
+                            Text(
+                                text = lang,
+                                color = ESNCyanDark,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (interests.isNotEmpty()) {

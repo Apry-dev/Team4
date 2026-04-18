@@ -21,8 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.esnmessenger.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -34,6 +37,26 @@ private enum class HomeTab { Chats, Messages, Restaurants, Statistics, Profile }
 @Composable
 fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
     var selectedTab by remember { mutableStateOf(HomeTab.Chats) }
+
+    // Reset to Messages tab whenever the app comes back from background.
+    // ON_STOP fires when the app is backgrounded (not when navigating within the app),
+    // so this only resets on foreground resume, not on back-navigation from ChatScreen.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var wasInBackground by remember { mutableStateOf(false) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP  -> wasInBackground = true
+                Lifecycle.Event.ON_START -> if (wasInBackground) {
+                    selectedTab = HomeTab.Messages
+                    wasInBackground = false
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         bottomBar = {

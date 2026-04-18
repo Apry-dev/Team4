@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.esnmessenger.model.INTEREST_EMOJIS
 import com.example.esnmessenger.model.INTERESTS
+import com.example.esnmessenger.model.LANGUAGES
 import com.example.esnmessenger.model.STUDENT_TYPES
 import com.example.esnmessenger.model.YEARS
 import com.example.esnmessenger.ui.theme.*
@@ -27,11 +28,13 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
     var step by remember { mutableIntStateOf(1) }
     var name by remember { mutableStateOf("") }
+    var country by remember { mutableStateOf("") }
     var university by remember { mutableStateOf("") }
     var studentType by remember { mutableStateOf("") }
     var major by remember { mutableStateOf("") }
     var year by remember { mutableStateOf("") }
     var selectedInterests by remember { mutableStateOf(setOf<String>()) }
+    var selectedLanguages by remember { mutableStateOf(setOf<String>()) }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -86,13 +89,15 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
             1 -> StepOne(
                 name = name,
                 onNameChange = { name = it },
+                country = country,
+                onCountryChange = { country = it },
                 university = university,
                 onUniversityChange = { university = it },
                 studentType = studentType,
                 onStudentTypeChange = { studentType = it },
                 errorMessage = errorMessage,
                 onNext = {
-                    if (name.isBlank() || university.isBlank() || studentType.isBlank()) {
+                    if (name.isBlank() || country.isBlank() || university.isBlank() || studentType.isBlank()) {
                         errorMessage = "Please fill in all fields"
                     } else {
                         errorMessage = ""
@@ -124,12 +129,23 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
                     else
                         selectedInterests + interest
                 },
+                selectedLanguages = selectedLanguages,
+                onLanguageToggle = { lang ->
+                    selectedLanguages = if (lang in selectedLanguages)
+                        selectedLanguages - lang
+                    else
+                        selectedLanguages + lang
+                },
                 errorMessage = errorMessage,
                 isLoading = isLoading,
                 onBack = { step = 2 },
                 onFinish = {
                     if (selectedInterests.isEmpty()) {
                         errorMessage = "Select at least one interest"
+                        return@StepThree
+                    }
+                    if (selectedLanguages.isEmpty()) {
+                        errorMessage = "Select at least one language"
                         return@StepThree
                     }
                     isLoading = true
@@ -139,11 +155,13 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
                     val profile = hashMapOf(
                         "email" to email.trim().lowercase(),
                         "name" to name,
+                        "country" to country,
                         "university" to university,
                         "studentType" to studentType,
                         "major" to major,
                         "year" to year,
-                        "interests" to selectedInterests.toList()
+                        "interests" to selectedInterests.toList(),
+                        "languages" to selectedLanguages.toList()
                     )
                     FirebaseFirestore.getInstance()
                         .collection("users")
@@ -163,6 +181,7 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
 @Composable
 private fun StepOne(
     name: String, onNameChange: (String) -> Unit,
+    country: String, onCountryChange: (String) -> Unit,
     university: String, onUniversityChange: (String) -> Unit,
     studentType: String, onStudentTypeChange: (String) -> Unit,
     errorMessage: String, onNext: () -> Unit
@@ -199,6 +218,15 @@ private fun StepOne(
                 focusedBorderColor = ESNCyan,
                 focusedLabelColor = ESNCyan,
             )
+        )
+
+        Spacer(Modifier.height(20.dp))
+        Text("Country", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(8.dp))
+        CountryDropdown(
+            value = country,
+            onValueChange = onCountryChange,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(Modifier.height(20.dp))
@@ -277,8 +305,7 @@ private fun StepTwo(
             .padding(28.dp)
     ) {
         Text(
-            "Academic Details",
-            style = MaterialTheme.typography.headlineMedium,
+            "Academic Details", style = MaterialTheme.typography.headlineMedium,
             color = TextPrimary
         )
         Spacer(Modifier.height(4.dp))
@@ -369,6 +396,8 @@ private fun StepTwo(
 private fun StepThree(
     selectedInterests: Set<String>,
     onInterestToggle: (String) -> Unit,
+    selectedLanguages: Set<String>,
+    onLanguageToggle: (String) -> Unit,
     errorMessage: String,
     isLoading: Boolean,
     onBack: () -> Unit,
@@ -413,6 +442,40 @@ private fun StepThree(
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = ESNMagenta,
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White,
+                        )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Languages you speak",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Select all that apply",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+            Spacer(Modifier.height(12.dp))
+
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LANGUAGES.forEach { lang ->
+                    val selected = lang in selectedLanguages
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onLanguageToggle(lang) },
+                        label = { Text(lang) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ESNCyan,
                             selectedLabelColor = Color.White,
                             selectedLeadingIconColor = Color.White,
                         )

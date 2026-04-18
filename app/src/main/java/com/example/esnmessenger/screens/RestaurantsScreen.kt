@@ -1,9 +1,11 @@
 package com.example.esnmessenger.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -17,27 +19,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.esnmessenger.model.DIET_FILTERS
 import com.example.esnmessenger.model.DailyMenu
 import com.example.esnmessenger.model.MealOption
+import com.example.esnmessenger.model.MenuItem
 import com.example.esnmessenger.ui.theme.*
 import com.example.esnmessenger.viewmodel.RestaurantsViewModel
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun RestaurantsScreen(viewModel: RestaurantsViewModel = viewModel()) {
     val menus by viewModel.menus.collectAsState()
-    val isWeekend by viewModel.isWeekend.collectAsState()
-    val todayLabel = remember {
-        SimpleDateFormat("EEEE, d MMMM", Locale.ENGLISH).format(Date())
-    }
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val weekDays = viewModel.weekDays
+
+    // null = no active filter
+    var activeDiet by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Header
+        // Gradient header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -52,59 +55,93 @@ fun RestaurantsScreen(viewModel: RestaurantsViewModel = viewModel()) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = todayLabel,
+                    text = weekDays.find { it.first == selectedDate }?.second ?: "",
                     color = Color.White.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            if (!isWeekend) {
-                IconButton(
-                    onClick = { viewModel.fetchAllMenus() },
-                    modifier = Modifier.align(Alignment.CenterEnd)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
-                }
+            IconButton(
+                onClick = { viewModel.fetchAllMenus() },
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
             }
         }
 
-        if (isWeekend) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "🍽️", fontSize = 48.sp)
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = "No service today",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+        // Day selector
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            weekDays.forEach { (dateStr, label) ->
+                FilterChip(
+                    selected = selectedDate == dateStr,
+                    onClick = { viewModel.selectDate(dateStr) },
+                    label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ESNCyan,
+                        selectedLabelColor = Color.White
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Campus restaurants are closed on weekends",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                }
+                )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(menus) { dailyMenu ->
-                    RestaurantCard(dailyMenu)
-                }
+        }
+
+        // Dietary filter
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(start = 12.dp, end = 12.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Diet:",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary
+            )
+            // "All" chip to clear filter
+            FilterChip(
+                selected = activeDiet == null,
+                onClick = { activeDiet = null },
+                label = { Text("All", style = MaterialTheme.typography.labelMedium) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = ESNCyanDark,
+                    selectedLabelColor = Color.White
+                )
+            )
+            DIET_FILTERS.forEach { (code, label) ->
+                FilterChip(
+                    selected = activeDiet == code,
+                    onClick = { activeDiet = if (activeDiet == code) null else code },
+                    label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ESNMagenta,
+                        selectedLabelColor = Color.White
+                    )
+                )
+            }
+        }
+
+        HorizontalDivider(color = OutlineColor.copy(alpha = 0.4f))
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(menus) { dailyMenu ->
+                RestaurantCard(dailyMenu, activeDiet)
             }
         }
     }
 }
 
 @Composable
-private fun RestaurantCard(dailyMenu: DailyMenu) {
+private fun RestaurantCard(dailyMenu: DailyMenu, activeDiet: String?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -156,10 +193,16 @@ private fun RestaurantCard(dailyMenu: DailyMenu) {
             when {
                 dailyMenu.isLoading -> {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = ESNCyan, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                        CircularProgressIndicator(
+                            color = ESNCyan,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
                 dailyMenu.error != null -> {
@@ -170,23 +213,42 @@ private fun RestaurantCard(dailyMenu: DailyMenu) {
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
-                dailyMenu.mealOptions.isEmpty() -> {
-                    Text(
-                        text = "No menu available today",
-                        color = TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
                 else -> {
-                    dailyMenu.mealOptions.forEachIndexed { index, option ->
-                        if (index > 0) Spacer(Modifier.height(12.dp))
-                        MealOptionSection(option)
+                    val filtered = dailyMenu.mealOptions.applyDietFilter(activeDiet)
+                    if (filtered.isEmpty()) {
+                        Text(
+                            text = if (activeDiet != null) "No items match the selected filter"
+                                   else "No menu available today",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        filtered.forEachIndexed { index, option ->
+                            if (index > 0) Spacer(Modifier.height(12.dp))
+                            MealOptionSection(option)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** Filters meal options by diet code; removes empty sections. */
+private fun List<MealOption>.applyDietFilter(code: String?): List<MealOption> {
+    if (code == null) return this
+    return mapNotNull { option ->
+        val matchingItems = option.items.filter { it.matchesDiet(code) }
+        if (matchingItems.isEmpty()) null else option.copy(items = matchingItems)
+    }
+}
+
+/** Checks whether a MenuItem carries the given Jamix diet code. */
+private fun MenuItem.matchesDiet(code: String): Boolean {
+    if (diets.isBlank()) return false
+    val tokens = diets.split(",", " ", "/").map { it.trim().uppercase() }
+    return code.uppercase() in tokens
 }
 
 @Composable

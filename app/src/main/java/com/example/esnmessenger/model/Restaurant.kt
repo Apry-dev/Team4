@@ -30,3 +30,11 @@ val OAMK_RESTAURANTS = listOf(
     Restaurant(2, "Ravintola Alwari", "Kontinkangas", 73),
     Restaurant(3, "Ravintola Foobar", "Linnanmaa", 69)
 )
+
+// Jamix diet codes → readable label (based on actual API response from OAMK)
+val DIET_FILTERS = listOf(
+    "VEG" to "Vegetarian",
+    "G"   to "Gluten-free",
+    "L"   to "Lactose-free",
+    "M"   to "Milk-free"
+)
