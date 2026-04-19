@@ -1,5 +1,6 @@
 package com.example.esnmessenger
 
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
@@ -17,6 +18,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         createNotificationChannel()
         refreshFcmToken()

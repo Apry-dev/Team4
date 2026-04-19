@@ -38,6 +38,9 @@ class ChatViewModel : ViewModel() {
     private val _otherUserIsTyping = MutableStateFlow(false)
     val otherUserIsTyping: StateFlow<Boolean> = _otherUserIsTyping
 
+    private val _otherUserLastSeen = MutableStateFlow(0L)
+    val otherUserLastSeen: StateFlow<Long> = _otherUserLastSeen
+
     private var listenerRegistration: ListenerRegistration? = null
     private var typingListenerRegistration: ListenerRegistration? = null
     private var typingJob: Job? = null
@@ -59,12 +62,17 @@ class ChatViewModel : ViewModel() {
                 _otherUserPhotoBase64.value = doc.getString("photoBase64")
             }
 
-        // Listen for typing indicator from the other user
+        // Update own lastSeen
+        db.collection("users").document(currentUid)
+            .set(mapOf("lastSeen" to System.currentTimeMillis()), SetOptions.merge())
+
+        // Listen for typing + presence from the other user
         typingListenerRegistration?.remove()
         typingListenerRegistration = db.collection("users").document(otherUserId)
             .addSnapshotListener { snapshot, _ ->
                 val typingTo = snapshot?.getString("isTypingTo")
                 _otherUserIsTyping.value = typingTo == currentUid
+                _otherUserLastSeen.value = snapshot?.getLong("lastSeen") ?: 0L
             }
 
         listenerRegistration?.remove()
@@ -151,6 +159,22 @@ class ChatViewModel : ViewModel() {
             .collection("messages")
             .add(Message(fromId = currentUid, toId = otherUserId, text = trimmed))
             .addOnFailureListener { e -> _error.value = e.message }
+    }
+
+    fun blockUser(otherUserId: String) {
+        val myUid = auth.currentUser?.uid ?: return
+        db.collection("blocks").document(myUid)
+            .set(mapOf("uids" to FieldValue.arrayUnion(otherUserId)), SetOptions.merge())
+    }
+
+    fun reportUser(otherUserId: String, reason: String) {
+        val myUid = auth.currentUser?.uid ?: return
+        db.collection("reports").add(mapOf(
+            "reporterId" to myUid,
+            "targetId" to otherUserId,
+            "reason" to reason,
+            "timestamp" to System.currentTimeMillis()
+        ))
     }
 
     override fun onCleared() {

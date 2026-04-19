@@ -24,6 +24,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.Badge
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
@@ -71,12 +73,14 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExistingChatsTab(
     viewModel: ChatListViewModel = viewModel(),
     onOpenChat: (String) -> Unit
 ) {
     val chats by viewModel.chats.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     var searchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
@@ -236,9 +240,15 @@ fun ExistingChatsTab(
                 }
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(chats) { chat ->
-                    ChatListItem(chat = chat, onClick = { onOpenChat(chat.otherUserId) })
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(chats) { chat ->
+                        ChatListItem(chat = chat, onClick = { onOpenChat(chat.otherUserId) })
+                    }
                 }
             }
         }
@@ -330,27 +340,39 @@ fun ChatListItem(chat: ChatSummary, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (photoBitmap != null) {
-            Image(
-                bitmap = photoBitmap.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(ESNCyan.copy(alpha = 0.18f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = chat.otherUserName.take(1).uppercase(),
-                    color = ESNCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
+        val isOnline = System.currentTimeMillis() - chat.otherUserLastSeen < 5 * 60 * 1000L && chat.otherUserLastSeen > 0
+
+        Box {
+            if (photoBitmap != null) {
+                Image(
+                    bitmap = photoBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(ESNCyan.copy(alpha = 0.18f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = chat.otherUserName.take(1).uppercase(),
+                        color = ESNCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
+            }
+            if (isOnline) {
+                Box(
+                    modifier = Modifier
+                        .size(13.dp)
+                        .background(androidx.compose.ui.graphics.Color(0xFF22C55E), CircleShape)
+                        .align(Alignment.BottomEnd)
                 )
             }
         }

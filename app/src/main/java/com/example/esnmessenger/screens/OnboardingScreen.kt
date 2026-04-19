@@ -7,11 +7,25 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import java.io.ByteArrayOutputStream
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +56,7 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
     var year by remember { mutableStateOf("") }
     var selectedInterests by remember { mutableStateOf(setOf<String>()) }
     var selectedLanguages by remember { mutableStateOf(setOf<String>()) }
+    var photoBase64 by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -111,6 +126,8 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
                     onUniversityChange = { university = it },
                     studentType = studentType,
                     onStudentTypeChange = { studentType = it },
+                    photoBase64 = photoBase64,
+                    onPhotoChange = { photoBase64 = it },
                     errorMessage = errorMessage,
                     onNext = {
                         if (name.isBlank() || country.isBlank() || university.isBlank() || studentType.isBlank()) {
@@ -179,6 +196,7 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
                             "interests" to selectedInterests.toList(),
                             "languages" to selectedLanguages.toList()
                         )
+                        photoBase64?.let { profile["photoBase64"] = it }
                         FirebaseFirestore.getInstance()
                             .collection("users")
                             .document(uid)
@@ -201,6 +219,7 @@ private fun StepOne(
     country: String, onCountryChange: (String) -> Unit,
     university: String, onUniversityChange: (String) -> Unit,
     studentType: String, onStudentTypeChange: (String) -> Unit,
+    photoBase64: String?, onPhotoChange: (String?) -> Unit,
     errorMessage: String, onNext: () -> Unit
 ) {
     var nameError by remember { mutableStateOf<String?>(null) }
@@ -208,12 +227,61 @@ private fun StepOne(
     var universityError by remember { mutableStateOf<String?>(null) }
     var studentTypeError by remember { mutableStateOf<String?>(null) }
 
+    val context = LocalContext.current
+    val photoBitmap = remember(photoBase64) {
+        photoBase64?.let {
+            runCatching {
+                val bytes = Base64.decode(it, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }.getOrNull()
+        }
+    }
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream)
+            } ?: return@let
+            val side = minOf(bitmap.width, bitmap.height)
+            val scaled = Bitmap.createScaledBitmap(bitmap, minOf(side, 400), minOf(side, 400), true)
+            val baos = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+            onPhotoChange(Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT))
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(28.dp)
     ) {
+        // Photo picker
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .background(ESNCyanLight, CircleShape)
+                    .clickable { photoLauncher.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                if (photoBitmap != null) {
+                    Image(
+                        bitmap = photoBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().background(ESNCyanLight, CircleShape)
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = ESNCyan, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text("Add photo", style = MaterialTheme.typography.labelSmall, color = ESNCyan)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+
         Text(
             "Let's get started!",
             style = MaterialTheme.typography.headlineMedium,

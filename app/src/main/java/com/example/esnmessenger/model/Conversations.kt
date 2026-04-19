@@ -7,5 +7,6 @@ data class ChatSummary(
     val lastMessage: String,
     val timestamp: Long,
     val otherUserPhotoBase64: String? = null,
-    val unreadCount: Int = 0
+    val unreadCount: Int = 0,
+    val otherUserLastSeen: Long = 0L
 )

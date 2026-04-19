@@ -1,6 +1,9 @@
 package com.example.esnmessenger.navigation
 
 import android.net.Uri
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,22 +11,26 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.esnmessenger.R
 import com.example.esnmessenger.ui.theme.ESNCyan
 import com.example.esnmessenger.ui.theme.ESNCyanDark
 import androidx.navigation.NavHostController
@@ -63,6 +70,12 @@ private fun ProfileCheckScreen(onHasProfile: () -> Unit, onNoProfile: () -> Unit
             }
             .addOnFailureListener { onHasProfile() }
     }
+
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(700), label = "logoAlpha")
+    val scale by animateFloatAsState(if (visible) 1f else 0.82f, tween(700), label = "logoScale")
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -73,32 +86,28 @@ private fun ProfileCheckScreen(onHasProfile: () -> Unit, onNoProfile: () -> Unit
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
+            Image(
+                painter = painterResource(R.drawable.logo),
+                contentDescription = "ESN Messenger Logo",
                 modifier = Modifier
-                    .size(96.dp)
-                    .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "ESN",
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-            Spacer(Modifier.height(20.dp))
+                    .size(140.dp)
+                    .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
+            )
+            Spacer(Modifier.height(24.dp))
             Text(
                 text = "ESN Messenger",
                 color = Color.White,
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.graphicsLayer { this.alpha = alpha }
             )
             Text(
                 text = "Connect with students worldwide",
                 color = Color.White.copy(alpha = 0.8f),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.graphicsLayer { this.alpha = alpha }
             )
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(52.dp))
             CircularProgressIndicator(
                 color = Color.White.copy(alpha = 0.7f),
                 strokeWidth = 2.dp,

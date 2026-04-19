@@ -121,7 +121,19 @@ fun StatisticsScreen() {
                                 .padding(vertical = 48.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("📊", fontSize = 64.sp)
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(ESNCyanLight, androidx.compose.foundation.shape.CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.BarChart,
+                                    contentDescription = null,
+                                    tint = ESNCyan,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                            }
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 "No stats yet",
@@ -183,7 +195,7 @@ fun StatisticsScreen() {
                                 value = stats.currentStreak,
                                 unit = if (stats.currentStreak == 1) "day" else "days",
                                 color = Color(0xFFF97316),
-                                emoji = "🔥",
+                                icon = Icons.Default.LocalFireDepartment,
                                 modifier = Modifier.weight(1f)
                             )
                             StreakCard(
@@ -191,7 +203,7 @@ fun StatisticsScreen() {
                                 value = stats.longestStreak,
                                 unit = if (stats.longestStreak == 1) "day" else "days",
                                 color = Color(0xFF8B5CF6),
-                                emoji = "🏆",
+                                icon = Icons.Default.EmojiEvents,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -423,7 +435,7 @@ private fun StreakCard(
     value: Int,
     unit: String,
     color: Color,
-    emoji: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -438,8 +450,15 @@ private fun StreakCard(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(emoji, fontSize = 30.sp)
-            Spacer(Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(color.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
+            }
+            Spacer(Modifier.height(8.dp))
             Text(
                 value.toString(),
                 style = MaterialTheme.typography.headlineMedium,
@@ -460,7 +479,12 @@ private fun StreakCard(
 
 @Composable
 private fun TopConvoRow(rank: Int, name: String, count: Int) {
-    val medal = when (rank) { 1 -> "🥇"; 2 -> "🥈"; 3 -> "🥉"; else -> "$rank." }
+    val rankColor = when (rank) {
+        1 -> Color(0xFFFFB300)
+        2 -> Color(0xFF9E9E9E)
+        3 -> Color(0xFFBF8B5E)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -469,7 +493,19 @@ private fun TopConvoRow(rank: Int, name: String, count: Int) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(medal, fontSize = 20.sp)
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .background(rankColor.copy(alpha = 0.15f), androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    rank.toString(),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = rankColor
+                )
+            }
             Spacer(Modifier.width(10.dp))
             Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
         }

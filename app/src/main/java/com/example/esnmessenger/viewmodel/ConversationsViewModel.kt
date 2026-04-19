@@ -2,23 +2,57 @@ package com.example.esnmessenger.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.esnmessenger.model.ChatSummary
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class ChatListViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    private var blockedUids = setOf<String>()
+    private var allChats = listOf<ChatSummary>()
+
     private val _chats = MutableStateFlow<List<ChatSummary>>(emptyList())
     val chats: StateFlow<List<ChatSummary>> = _chats.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     init {
-        listenForExistingChats()
+        val myUid = auth.currentUser?.uid
+        if (myUid != null) {
+            listenToBlocks(myUid)
+            listenForExistingChats()
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            delay(700)
+            _isRefreshing.value = false
+        }
+    }
+
+    private fun applyFilter() {
+        _chats.value = allChats.filter { it.otherUserId !in blockedUids }
+    }
+
+    private fun listenToBlocks(myUid: String) {
+        firestore.collection("blocks").document(myUid)
+            .addSnapshotListener { doc, _ ->
+                blockedUids = (doc?.get("uids") as? List<*>)
+                    ?.filterIsInstance<String>()?.toSet() ?: emptySet()
+                applyFilter()
+            }
     }
 
     private fun listenForExistingChats() {
@@ -36,7 +70,8 @@ class ChatListViewModel : ViewModel() {
 
                 val docs = snapshot.documents
                 if (docs.isEmpty()) {
-                    _chats.value = emptyList()
+                    allChats = emptyList()
+                    applyFilter()
                     return@addSnapshotListener
                 }
 
@@ -49,7 +84,7 @@ class ChatListViewModel : ViewModel() {
 
                     if (participants == null || otherUserId == null) {
                         remaining--
-                        if (remaining == 0) _chats.value = chatList.sortedByDescending { it.timestamp }
+                        if (remaining == 0) { allChats = chatList.sortedByDescending { it.timestamp }; applyFilter() }
                         continue
                     }
 
@@ -62,33 +97,30 @@ class ChatListViewModel : ViewModel() {
                             val name = userDoc.getString("name")
                                 ?: userDoc.getString("email")
                                 ?: otherUserId
-                            chatList.add(
-                                ChatSummary(
-                                    chatId = doc.id,
-                                    otherUserId = otherUserId,
-                                    otherUserName = name,
-                                    lastMessage = lastMessage,
-                                    timestamp = timestamp,
-                                    otherUserPhotoBase64 = userDoc.getString("photoBase64"),
-                                    unreadCount = unreadCount
-                                )
-                            )
+                            chatList.add(ChatSummary(
+                                chatId = doc.id,
+                                otherUserId = otherUserId,
+                                otherUserName = name,
+                                lastMessage = lastMessage,
+                                timestamp = timestamp,
+                                otherUserPhotoBase64 = userDoc.getString("photoBase64"),
+                                unreadCount = unreadCount,
+                                otherUserLastSeen = userDoc.getLong("lastSeen") ?: 0L
+                            ))
                             remaining--
-                            if (remaining == 0) _chats.value = chatList.sortedByDescending { it.timestamp }
+                            if (remaining == 0) { allChats = chatList.sortedByDescending { it.timestamp }; applyFilter() }
                         }
                         .addOnFailureListener {
-                            chatList.add(
-                                ChatSummary(
-                                    chatId = doc.id,
-                                    otherUserId = otherUserId,
-                                    otherUserName = otherUserId,
-                                    lastMessage = lastMessage,
-                                    timestamp = timestamp,
-                                    unreadCount = unreadCount
-                                )
-                            )
+                            chatList.add(ChatSummary(
+                                chatId = doc.id,
+                                otherUserId = otherUserId,
+                                otherUserName = otherUserId,
+                                lastMessage = lastMessage,
+                                timestamp = timestamp,
+                                unreadCount = unreadCount
+                            ))
                             remaining--
-                            if (remaining == 0) _chats.value = chatList.sortedByDescending { it.timestamp }
+                            if (remaining == 0) { allChats = chatList.sortedByDescending { it.timestamp }; applyFilter() }
                         }
                 }
             }

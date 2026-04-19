@@ -26,9 +26,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,7 +111,11 @@ fun ChatScreen(
     val otherUserName by chatViewModel.otherUserName.collectAsState()
     val otherUserPhotoBase64 by chatViewModel.otherUserPhotoBase64.collectAsState()
     val otherUserIsTyping by chatViewModel.otherUserIsTyping.collectAsState()
+    val otherUserLastSeen by chatViewModel.otherUserLastSeen.collectAsState()
     var inputText by remember { mutableStateOf("") }
+    var showMenu by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     val otherUserBitmap = remember(otherUserPhotoBase64) {
@@ -138,22 +146,68 @@ fun ChatScreen(
                 .statusBarsPadding()
                 .padding(horizontal = 4.dp, vertical = 8.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 Spacer(Modifier.width(4.dp))
                 UserAvatar(bitmap = otherUserBitmap, name = otherUserName, size = 40)
                 Spacer(Modifier.width(10.dp))
-                Text(
-                    text = otherUserName ?: "Chat",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = otherUserName ?: "Chat",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    val presenceText = formatPresence(otherUserLastSeen)
+                    if (presenceText.isNotEmpty()) {
+                        Text(
+                            text = presenceText,
+                            color = Color.White.copy(alpha = 0.75f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = Color.White)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Block user") },
+                            onClick = { showBlockConfirm = true; showMenu = false },
+                            leadingIcon = { Icon(Icons.Default.Block, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Report user") },
+                            onClick = { showReportDialog = true; showMenu = false },
+                            leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) }
+                        )
+                    }
+                }
+            }
+
+            if (showBlockConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showBlockConfirm = false },
+                    title = { Text("Block ${otherUserName ?: "user"}?") },
+                    text = { Text("They won't appear in your chats or Meet. You can unblock them later.") },
+                    confirmButton = {
+                        Button(
+                            onClick = { chatViewModel.blockUser(otherUserId); showBlockConfirm = false; onBack() },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Block") }
+                    },
+                    dismissButton = { TextButton(onClick = { showBlockConfirm = false }) { Text("Cancel") } }
+                )
+            }
+
+            if (showReportDialog) {
+                ReportDialog(
+                    name = otherUserName ?: "user",
+                    onReport = { reason -> chatViewModel.reportUser(otherUserId, reason); showReportDialog = false },
+                    onDismiss = { showReportDialog = false }
                 )
             }
         }
@@ -476,4 +530,56 @@ private fun MessageBubble(
             Spacer(Modifier.width(6.dp + 28.dp)) // balance the left-side avatar space
         }
     }
+}
+
+private fun formatPresence(lastSeen: Long): String {
+    if (lastSeen == 0L) return ""
+    val diff = System.currentTimeMillis() - lastSeen
+    return when {
+        diff < 5 * 60_000L -> "Online"
+        diff < 3_600_000L -> "Last seen ${diff / 60_000}m ago"
+        diff < 86_400_000L -> "Last seen ${diff / 3_600_000}h ago"
+        else -> "Last seen recently"
+    }
+}
+
+@Composable
+private fun ReportDialog(
+    name: String,
+    onReport: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val reasons = listOf("Spam", "Inappropriate content", "Harassment", "Fake profile")
+    var selected by remember { mutableStateOf(reasons[0]) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Report $name", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Select a reason:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                reasons.forEach { reason ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(selected = selected == reason, onClick = { selected = reason })
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = selected == reason, onClick = { selected = reason })
+                        Spacer(Modifier.width(8.dp))
+                        Text(reason, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onReport(selected) },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) { Text("Report") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

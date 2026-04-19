@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
@@ -29,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.example.esnmessenger.ui.theme.ESNCyan
 import com.example.esnmessenger.ui.theme.ESNCyanLight
 
-private enum class HomeTab { Chats, Food, Statistics, Profile }
+private enum class HomeTab { Chats, Meet, Food, Statistics, Profile }
 
 @Composable
 fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
@@ -46,6 +47,17 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
                     onClick = { selectedTab = HomeTab.Chats },
                     icon = { Icon(Icons.Default.Forum, contentDescription = "Chats") },
                     label = { Text("Chats") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = ESNCyan,
+                        selectedTextColor = ESNCyan,
+                        indicatorColor = ESNCyanLight
+                    )
+                )
+                NavigationBarItem(
+                    selected = selectedTab == HomeTab.Meet,
+                    onClick = { selectedTab = HomeTab.Meet },
+                    icon = { Icon(Icons.Default.People, contentDescription = "Meet") },
+                    label = { Text("Meet") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = ESNCyan,
                         selectedTextColor = ESNCyan,
@@ -96,6 +108,7 @@ fun HomeScreen(onLogout: () -> Unit, onOpenChat: (String) -> Unit) {
             ) { tab ->
                 when (tab) {
                     HomeTab.Chats -> ExistingChatsTab(onOpenChat = onOpenChat)
+                    HomeTab.Meet -> MatchScreen(onOpenChat = onOpenChat)
                     HomeTab.Food -> RestaurantsScreen()
                     HomeTab.Statistics -> StatisticsScreen()
                     HomeTab.Profile -> ProfileScreen(onLogout = onLogout)
