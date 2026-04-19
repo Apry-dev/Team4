@@ -161,6 +161,22 @@ class ChatViewModel : ViewModel() {
             .addOnFailureListener { e -> _error.value = e.message }
     }
 
+    fun deleteMessage(messageId: String, otherUserId: String) {
+        val currentUid = auth.currentUser?.uid ?: return
+        val cid = chatId(currentUid, otherUserId)
+        db.collection("chats").document(cid)
+            .collection("messages").document(messageId)
+            .update("deleted", true, "text", "")
+    }
+
+    fun editMessage(messageId: String, otherUserId: String, newText: String) {
+        val currentUid = auth.currentUser?.uid ?: return
+        val cid = chatId(currentUid, otherUserId)
+        db.collection("chats").document(cid)
+            .collection("messages").document(messageId)
+            .update("text", newText.trim(), "edited", true)
+    }
+
     fun blockUser(otherUserId: String) {
         val myUid = auth.currentUser?.uid ?: return
         db.collection("blocks").document(myUid)

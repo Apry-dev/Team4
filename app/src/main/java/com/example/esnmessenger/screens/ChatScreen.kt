@@ -12,12 +12,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,8 +32,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -173,16 +180,36 @@ fun ChatScreen(
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = Color.White)
                     }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 8.dp,
+                        tonalElevation = 4.dp
+                    ) {
                         DropdownMenuItem(
-                            text = { Text("Block user") },
+                            text = { Text("Block user", color = MaterialTheme.colorScheme.error) },
                             onClick = { showBlockConfirm = true; showMenu = false },
-                            leadingIcon = { Icon(Icons.Default.Block, contentDescription = null) }
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Block,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
                         DropdownMenuItem(
                             text = { Text("Report user") },
                             onClick = { showReportDialog = true; showMenu = false },
-                            leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) }
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Flag,
+                                    contentDescription = null,
+                                    tint = ESNCyan
+                                )
+                            }
                         )
                     }
                 }
@@ -233,15 +260,26 @@ fun ChatScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
                 contentPadding = PaddingValues(vertical = 12.dp)
             ) {
-                items(messages, key = { it.id }) { message ->
+                itemsIndexed(messages, key = { _, msg -> msg.id }) { index, message ->
+                    val prev = messages.getOrNull(index - 1)
+                    val next = messages.getOrNull(index + 1)
+                    val groupGap = 5 * 60 * 1000L
+                    val isFirstInGroup = prev == null || prev.fromId != message.fromId ||
+                        (message.timestamp.toDate().time - prev.timestamp.toDate().time) > groupGap
+                    val isLastInGroup = next == null || next.fromId != message.fromId ||
+                        (next.timestamp.toDate().time - message.timestamp.toDate().time) > groupGap
                     MessageBubble(
                         message = message,
                         isMine = message.fromId == currentUid,
                         otherUserBitmap = otherUserBitmap,
-                        otherUserName = otherUserName
+                        otherUserName = otherUserName,
+                        isFirstInGroup = isFirstInGroup,
+                        isLastInGroup = isLastInGroup,
+                        onDelete = { chatViewModel.deleteMessage(message.id, otherUserId) },
+                        onEdit = { newText -> chatViewModel.editMessage(message.id, otherUserId, newText) }
                     )
                 }
                 if (otherUserIsTyping) {
@@ -441,95 +479,221 @@ private fun MessageBubble(
     message: Message,
     isMine: Boolean,
     otherUserBitmap: Bitmap?,
-    otherUserName: String?
+    otherUserName: String?,
+    isFirstInGroup: Boolean,
+    isLastInGroup: Boolean,
+    onDelete: () -> Unit,
+    onEdit: (String) -> Unit
 ) {
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val timeText = remember(message.timestamp) {
         timeFormat.format(message.timestamp.toDate())
     }
-    // 72% of the screen width so bubbles stay readable on both small and large phones
     val maxBubbleWidth = LocalConfiguration.current.screenWidthDp.dp * 0.72f
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom
+    // Only animate messages sent in the last 3 seconds (i.e. just arrived)
+    val isNew = remember { (System.currentTimeMillis() - message.timestamp.toDate().time) < 3000L }
+    var visible by remember { mutableStateOf(!isNew) }
+    LaunchedEffect(Unit) { if (isNew) visible = true }
+
+    var showMenu by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    val canModify = isMine && !message.deleted &&
+        (System.currentTimeMillis() - message.timestamp.toDate().time) < 10 * 60 * 1000L
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(tween(220)) { it / 2 } + fadeIn(tween(220))
     ) {
-        if (!isMine) {
-            // Avatar for incoming messages
-            if (otherUserBitmap != null) {
-                Image(
-                    bitmap = otherUserBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(ESNCyan.copy(alpha = 0.2f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = otherUserName?.take(1)?.uppercase() ?: "?",
-                        color = ESNCyan,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-            Spacer(Modifier.width(6.dp))
-        }
-
-        Column(horizontalAlignment = if (isMine) Alignment.End else Alignment.Start) {
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = if (isMine) ESNCyan else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 16.dp,
-                            bottomStart = if (isMine) 16.dp else 4.dp,
-                            bottomEnd = if (isMine) 4.dp else 16.dp
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = if (isLastInGroup) 6.dp else 0.dp),
+            horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            if (!isMine) {
+                if (isLastInGroup) {
+                    if (otherUserBitmap != null) {
+                        Image(
+                            bitmap = otherUserBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(28.dp).clip(CircleShape)
                         )
-                    )
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                    .widthIn(max = maxBubbleWidth)
-            ) {
-                Text(
-                    text = message.text,
-                    color = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(ESNCyan.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = otherUserName?.take(1)?.uppercase() ?: "?",
+                                color = ESNCyan,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.size(28.dp))
+                }
+                Spacer(Modifier.width(6.dp))
             }
-            Spacer(Modifier.height(2.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = timeText,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
-                )
-                if (isMine) {
-                    Icon(
-                        imageVector = if (message.read) Icons.Default.DoneAll else Icons.Default.Done,
-                        contentDescription = if (message.read) "Read" else "Sent",
-                        tint = if (message.read) ESNCyan else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
-                    )
+
+            // Corner radii: tail only on last message of group
+            val topStart = if (!isMine && !isFirstInGroup) 4.dp else 16.dp
+            val topEnd = if (isMine && !isFirstInGroup) 4.dp else 16.dp
+            val bottomStart = if (!isMine && isLastInGroup) 4.dp else 16.dp
+            val bottomEnd = if (isMine && isLastInGroup) 4.dp else 16.dp
+
+            Column(horizontalAlignment = if (isMine) Alignment.End else Alignment.Start) {
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = if (message.deleted)
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                else if (isMine) ESNCyan
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(
+                                    topStart = topStart,
+                                    topEnd = topEnd,
+                                    bottomStart = bottomStart,
+                                    bottomEnd = bottomEnd
+                                )
+                            )
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .widthIn(max = maxBubbleWidth)
+                            .then(
+                                if (canModify) Modifier.pointerInput(Unit) {
+                                    detectTapGestures(onLongPress = { showMenu = true })
+                                } else Modifier
+                            )
+                    ) {
+                        if (message.deleted) {
+                            Text(
+                                text = "Message deleted",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontStyle = FontStyle.Italic
+                            )
+                        } else {
+                            Text(
+                                text = message.text,
+                                color = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 8.dp,
+                        tonalElevation = 4.dp
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Edit") },
+                            onClick = { showMenu = false; showEditDialog = true },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = ESNCyan
+                                )
+                            }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; onDelete() },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
+                }
+                if (isLastInGroup) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        if (message.edited && !message.deleted) {
+                            Text(
+                                text = "edited",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 10.sp,
+                                fontStyle = FontStyle.Italic
+                            )
+                            Spacer(Modifier.width(2.dp))
+                        }
+                        Text(
+                            text = timeText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp
+                        )
+                        if (isMine && !message.deleted) {
+                            Icon(
+                                imageVector = if (message.read) Icons.Default.DoneAll else Icons.Default.Done,
+                                contentDescription = if (message.read) "Read" else "Sent",
+                                tint = if (message.read) ESNCyan else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
-        }
 
-        if (isMine) {
-            Spacer(Modifier.width(6.dp + 28.dp)) // balance the left-side avatar space
+            if (isMine) {
+                Spacer(Modifier.width(6.dp + 28.dp))
+            }
         }
     }
+
+    if (showEditDialog) {
+        EditMessageDialog(
+            currentText = message.text,
+            onConfirm = { newText -> onEdit(newText); showEditDialog = false },
+            onDismiss = { showEditDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun EditMessageDialog(
+    currentText: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(currentText) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit message", fontWeight = FontWeight.Bold) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 6,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ESNCyan)
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (text.isNotBlank()) onConfirm(text) },
+                colors = ButtonDefaults.buttonColors(containerColor = ESNCyan)
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 private fun formatPresence(lastSeen: Long): String {
