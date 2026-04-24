@@ -10,5 +10,8 @@ data class Message(
     val timestamp: Timestamp = Timestamp.now(),
     val read: Boolean = false,
     val deleted: Boolean = false,
-    val edited: Boolean = false
+    val edited: Boolean = false,
+    val imageUrl: String? = null,
+    val audioUrl: String? = null,
+    val audioDurationMs: Long = 0
 )

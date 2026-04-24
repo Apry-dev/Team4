@@ -1,5 +1,11 @@
 package com.example.esnmessenger.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -20,36 +26,45 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import java.io.ByteArrayOutputStream
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import java.io.ByteArrayOutputStream
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.example.esnmessenger.model.INTEREST_EMOJIS
 import com.example.esnmessenger.model.INTERESTS
 import com.example.esnmessenger.model.LANGUAGES
 import com.example.esnmessenger.model.STUDENT_TYPES
 import com.example.esnmessenger.model.YEARS
 import com.example.esnmessenger.ui.theme.*
+import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @Composable
 fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
     var step by remember { mutableIntStateOf(1) }
     var name by remember { mutableStateOf("") }
     var country by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
     var university by remember { mutableStateOf("") }
     var studentType by remember { mutableStateOf("") }
     var major by remember { mutableStateOf("") }
@@ -122,6 +137,8 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
                     onNameChange = { name = it },
                     country = country,
                     onCountryChange = { country = it },
+                    city = city,
+                    onCityChange = { city = it },
                     university = university,
                     onUniversityChange = { university = it },
                     studentType = studentType,
@@ -189,6 +206,7 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
                             "email" to email.trim().lowercase(),
                             "name" to name,
                             "country" to country,
+                            "city" to city,
                             "university" to university,
                             "studentType" to studentType,
                             "major" to major,
@@ -217,6 +235,7 @@ fun OnboardingScreen(email: String, onOnboardingComplete: () -> Unit) {
 private fun StepOne(
     name: String, onNameChange: (String) -> Unit,
     country: String, onCountryChange: (String) -> Unit,
+    city: String, onCityChange: (String) -> Unit,
     university: String, onUniversityChange: (String) -> Unit,
     studentType: String, onStudentTypeChange: (String) -> Unit,
     photoBase64: String?, onPhotoChange: (String?) -> Unit,
@@ -226,8 +245,41 @@ private fun StepOne(
     var countryError by remember { mutableStateOf<String?>(null) }
     var universityError by remember { mutableStateOf<String?>(null) }
     var studentTypeError by remember { mutableStateOf<String?>(null) }
-
+    var isLocating by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(RequestPermission()) { granted ->
+        if (granted) {
+            isLocating = true
+            locationError = null
+            coroutineScope.launch {
+                val result = fetchCityFromLocation(context)
+                if (result != null) onCityChange(result) else locationError = "Couldn't determine city"
+                isLocating = false
+            }
+        } else {
+            locationError = "Location permission denied"
+        }
+    }
+
+    fun onLocationClick() {
+        locationError = null
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            isLocating = true
+            coroutineScope.launch {
+                val result = fetchCityFromLocation(context)
+                if (result != null) onCityChange(result) else locationError = "Couldn't determine city"
+                isLocating = false
+            }
+        } else {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
     val photoBitmap = remember(photoBase64) {
         photoBase64?.let {
             runCatching {
@@ -322,6 +374,44 @@ private fun StepOne(
         )
         if (countryError != null) {
             Text(countryError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text("City", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = city,
+            onValueChange = { onCityChange(it); locationError = null },
+            placeholder = { Text("Your current city") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            trailingIcon = {
+                if (isLocating) {
+                    CircularProgressIndicator(
+                        modifier = androidx.compose.ui.Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = ESNCyan
+                    )
+                } else {
+                    IconButton(onClick = ::onLocationClick) {
+                        Icon(
+                            imageVector = Icons.Default.MyLocation,
+                            contentDescription = "Use my location",
+                            tint = ESNCyan
+                        )
+                    }
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ESNCyan,
+                focusedLabelColor = ESNCyan,
+            )
+        )
+        if (locationError != null) {
+            Text(locationError!!, color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp))
         }
 
@@ -622,3 +712,25 @@ private fun StepThree(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+@Suppress("DEPRECATION")
+private suspend fun fetchCityFromLocation(context: android.content.Context): String? =
+    withContext(Dispatchers.IO) {
+        try {
+            val client = LocationServices.getFusedLocationProviderClient(context)
+            val location = client.lastLocation.await() ?: return@withContext null
+            val geocoder = Geocoder(context, Locale.getDefault())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                    geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                        cont.resume(addresses.firstOrNull()?.locality, null)
+                    }
+                }
+            } else {
+                geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                    ?.firstOrNull()?.locality
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }

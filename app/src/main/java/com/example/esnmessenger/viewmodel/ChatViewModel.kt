@@ -1,8 +1,12 @@
 package com.example.esnmessenger.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.esnmessenger.model.Message
+import com.example.esnmessenger.network.CloudinaryUploader
+import com.example.esnmessenger.util.AudioRecorder
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -15,16 +19,29 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class ChatViewModel : ViewModel() {
+sealed class RecordingState {
+    object Idle : RecordingState()
+    data class Recording(val startTimeMs: Long) : RecordingState()
+    object Uploading : RecordingState()
+}
+
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val audioRecorder = AudioRecorder(application)
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading
+
+    private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
+    val recordingState: StateFlow<RecordingState> = _recordingState
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
@@ -72,11 +89,9 @@ class ChatViewModel : ViewModel() {
                 _isBlocked.value = blocked.contains(otherUserId)
             }
 
-        // Update own lastSeen
         db.collection("users").document(currentUid)
             .set(mapOf("lastSeen" to System.currentTimeMillis()), SetOptions.merge())
 
-        // Listen for typing + presence from the other user
         typingListenerRegistration?.remove()
         typingListenerRegistration = db.collection("users").document(otherUserId)
             .addSnapshotListener { snapshot, _ ->
@@ -143,21 +158,22 @@ class ChatViewModel : ViewModel() {
             .update("isTypingTo", null)
     }
 
-    fun sendMessage(otherUserId: String, text: String) {
+    fun sendMessage(otherUserId: String, text: String, imageUrl: String? = null) {
         val currentUid = auth.currentUser?.uid ?: return
-        if (text.isBlank()) return
+        val trimmed = text.trim()
+        if (trimmed.isBlank() && imageUrl == null) return
 
         val cid = chatId(currentUid, otherUserId)
-        val trimmed = text.trim()
-
         clearTypingState()
         typingJob?.cancel()
+
+        val lastMessagePreview = if (trimmed.isNotBlank()) trimmed else "[Photo]"
 
         db.collection("chats").document(cid)
             .set(
                 mapOf(
                     "participants" to listOf(currentUid, otherUserId),
-                    "lastMessage" to trimmed,
+                    "lastMessage" to lastMessagePreview,
                     "timestamp" to System.currentTimeMillis(),
                     "unreadCount_$otherUserId" to FieldValue.increment(1)
                 ),
@@ -167,7 +183,7 @@ class ChatViewModel : ViewModel() {
         db.collection("chats")
             .document(cid)
             .collection("messages")
-            .add(Message(fromId = currentUid, toId = otherUserId, text = trimmed))
+            .add(Message(fromId = currentUid, toId = otherUserId, text = trimmed, imageUrl = imageUrl))
             .addOnFailureListener { e -> _error.value = e.message }
     }
 
@@ -203,11 +219,74 @@ class ChatViewModel : ViewModel() {
         ))
     }
 
+    fun sendMessageWithImage(otherUserId: String, text: String, imageUri: Uri) {
+        viewModelScope.launch {
+            _isUploading.value = true
+            _error.value = null
+            try {
+                val url = CloudinaryUploader.upload(getApplication(), imageUri)
+                sendMessage(otherUserId, text, url)
+            } catch (e: Exception) {
+                _error.value = "Upload failed: ${e.message}"
+            } finally {
+                _isUploading.value = false
+            }
+        }
+    }
+
+    fun startRecording() {
+        if (_recordingState.value !is RecordingState.Idle) return
+        audioRecorder.start()
+        _recordingState.value = RecordingState.Recording(System.currentTimeMillis())
+    }
+
+    fun stopAndSendRecording(otherUserId: String, durationMs: Long) {
+        val currentUid = auth.currentUser?.uid ?: return
+        val file = audioRecorder.stop() ?: run {
+            _recordingState.value = RecordingState.Idle
+            return
+        }
+        val cid = chatId(currentUid, otherUserId)
+
+        _recordingState.value = RecordingState.Uploading
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                val url = CloudinaryUploader.uploadAudio(file)
+                file.delete()
+                db.collection("chats").document(cid)
+                    .set(
+                        mapOf(
+                            "participants" to listOf(currentUid, otherUserId),
+                            "lastMessage" to "[Voice note]",
+                            "timestamp" to System.currentTimeMillis(),
+                            "unreadCount_$otherUserId" to FieldValue.increment(1)
+                        ),
+                        SetOptions.merge()
+                    )
+                db.collection("chats").document(cid).collection("messages")
+                    .add(Message(fromId = currentUid, toId = otherUserId, audioUrl = url, audioDurationMs = durationMs))
+                    .addOnFailureListener { e -> _error.value = e.message }
+            } catch (e: Exception) {
+                _error.value = "Upload failed: ${e.message}"
+                file.delete()
+            } finally {
+                _recordingState.value = RecordingState.Idle
+            }
+        }
+    }
+
+    fun cancelRecording() {
+        audioRecorder.cancel()
+        _recordingState.value = RecordingState.Idle
+    }
+
     override fun onCleared() {
         super.onCleared()
         listenerRegistration?.remove()
         typingListenerRegistration?.remove()
         typingJob?.cancel()
         clearTypingState()
+        audioRecorder.cancel()
     }
 }
