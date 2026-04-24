@@ -29,6 +29,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.graphicsLayer
@@ -42,12 +43,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,10 +66,6 @@ import com.example.esnmessenger.ui.theme.ESNCyanDark
 import com.example.esnmessenger.ui.theme.ESNCyanLight
 import com.example.esnmessenger.ui.theme.OutlineColor
 import com.example.esnmessenger.viewmodel.ChatListViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,51 +75,17 @@ fun ExistingChatsTab(
 ) {
     val chats by viewModel.chats.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
-    var searchActive by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
-    var isSearching by remember { mutableStateOf(false) }
-    val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-
-    LaunchedEffect(searchQuery) {
-        if (searchQuery.isBlank()) {
-            searchResults = emptyList()
-            isSearching = false
-            return@LaunchedEffect
-        }
-        delay(300)
-        isSearching = true
-        try {
-            val db = FirebaseFirestore.getInstance()
-            val query = searchQuery.trim().lowercase()
-            val queryEnd = query + '\uf8ff'
-            val byEmail = db.collection("users")
-                .whereGreaterThanOrEqualTo("email", query)
-                .whereLessThan("email", queryEnd)
-                .limit(20).get().await()
-            val byName = db.collection("users")
-                .whereGreaterThanOrEqualTo("name", searchQuery.trim())
-                .whereLessThan("name", searchQuery.trim() + '\uf8ff')
-                .limit(20).get().await()
-            searchResults = (byEmail.documents + byName.documents)
-                .distinctBy { it.id }
-                .filter { it.id != currentUid }
-                .map { doc ->
-                    Triple(doc.id, doc.getString("email") ?: "", doc.getString("name") ?: "")
-                }
-        } catch (_: Exception) {
-            searchResults = emptyList()
-        } finally {
-            isSearching = false
-        }
-    }
+    val searchActive by viewModel.searchActive.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()
+    val totalUnread = chats.sumOf { it.unreadCount }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Gradient header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,26 +105,30 @@ fun ExistingChatsTab(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            IconButton(
-                onClick = {
-                    searchActive = !searchActive
-                    if (!searchActive) searchQuery = ""
-                },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Icon(
-                    imageVector = if (searchActive) Icons.Default.Close else Icons.Default.Search,
-                    contentDescription = if (searchActive) "Close search" else "Find people",
-                    tint = Color.White
-                )
+            Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+                if (totalUnread > 0 && !searchActive) {
+                    IconButton(onClick = { viewModel.markAllAsRead() }) {
+                        Icon(
+                            imageVector = Icons.Default.DoneAll,
+                            contentDescription = "Mark all as read",
+                            tint = Color.White
+                        )
+                    }
+                }
+                IconButton(onClick = { viewModel.setSearchActive(!searchActive) }) {
+                    Icon(
+                        imageVector = if (searchActive) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (searchActive) "Close search" else "Find people",
+                        tint = Color.White
+                    )
+                }
             }
         }
 
-        // Search bar (shown when active)
         if (searchActive) {
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = { viewModel.setSearchQuery(it) },
                 placeholder = { Text("Search users by name or email…") },
                 leadingIcon = {
                     if (isSearching) {
@@ -189,7 +153,6 @@ fun ExistingChatsTab(
             )
         }
 
-        // Content: search results or chat list
         if (searchActive && searchQuery.isNotBlank()) {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (searchResults.isEmpty() && !isSearching) {

@@ -119,6 +119,7 @@ fun ChatScreen(
     val otherUserPhotoBase64 by chatViewModel.otherUserPhotoBase64.collectAsState()
     val otherUserIsTyping by chatViewModel.otherUserIsTyping.collectAsState()
     val otherUserLastSeen by chatViewModel.otherUserLastSeen.collectAsState()
+    val isBlocked by chatViewModel.isBlocked.collectAsState()
     var inputText by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
@@ -293,63 +294,91 @@ fun ChatScreen(
             }
         }
 
-        // Input bar — navigationBarsPadding() handles the gesture nav bar when the
-        // keyboard is hidden; imePadding() on the outer Column handles it when shown.
-        Surface(
-            tonalElevation = 4.dp,
-            shadowElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = {
-                        inputText = it
-                        chatViewModel.updateTypingState(it.isNotBlank())
-                    },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Message...") },
-                    shape = RoundedCornerShape(24.dp),
-                    singleLine = false,
-                    maxLines = 4,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = {
-                        if (inputText.isNotBlank()) {
-                            chatViewModel.sendMessage(otherUserId, inputText)
-                            inputText = ""
-                        }
-                    }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ESNCyan,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    )
-                )
-                Spacer(Modifier.width(8.dp))
-                IconButton(
-                    onClick = {
-                        if (inputText.isNotBlank()) {
-                            chatViewModel.sendMessage(otherUserId, inputText)
-                            inputText = ""
-                        }
-                    },
-                    enabled = inputText.isNotBlank(),
+        if (isBlocked) {
+            Surface(tonalElevation = 4.dp, shadowElevation = 4.dp) {
+                Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (inputText.isNotBlank()) ESNCyan else OutlineColor,
-                            shape = RoundedCornerShape(24.dp)
-                        )
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = Color.White
+                    Text(
+                        text = "You've blocked this user. Unblock them to send messages.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+                }
+            }
+        } else {
+            Surface(tonalElevation = 4.dp, shadowElevation = 4.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = {
+                            if (it.length <= 500) {
+                                inputText = it
+                                chatViewModel.updateTypingState(it.isNotBlank())
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Message...") },
+                        shape = RoundedCornerShape(24.dp),
+                        singleLine = false,
+                        maxLines = 4,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = {
+                            if (inputText.isNotBlank()) {
+                                chatViewModel.sendMessage(otherUserId, inputText)
+                                inputText = ""
+                            }
+                        }),
+                        suffix = if (inputText.length > 400) {
+                            {
+                                Text(
+                                    text = "${500 - inputText.length}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (inputText.length > 460)
+                                        MaterialTheme.colorScheme.error
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else null,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = ESNCyan,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            if (inputText.isNotBlank()) {
+                                chatViewModel.sendMessage(otherUserId, inputText)
+                                inputText = ""
+                            }
+                        },
+                        enabled = inputText.isNotBlank(),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = if (inputText.isNotBlank()) ESNCyan else OutlineColor,
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         }

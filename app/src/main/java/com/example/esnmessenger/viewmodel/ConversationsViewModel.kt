@@ -7,11 +7,13 @@ import com.example.esnmessenger.model.ChatSummary
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class ChatListViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
@@ -25,6 +27,20 @@ class ChatListViewModel : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _searchActive = MutableStateFlow(false)
+    val searchActive: StateFlow<Boolean> = _searchActive.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<Triple<String, String, String>>>(emptyList())
+    val searchResults: StateFlow<List<Triple<String, String, String>>> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private var searchJob: Job? = null
 
     init {
         val myUid = auth.currentUser?.uid
@@ -124,5 +140,62 @@ class ChatListViewModel : ViewModel() {
                         }
                 }
             }
+    }
+
+    fun setSearchActive(active: Boolean) {
+        _searchActive.value = active
+        if (!active) {
+            _searchQuery.value = ""
+            _searchResults.value = emptyList()
+        }
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(300)
+            _isSearching.value = true
+            try {
+                val q = query.trim().lowercase()
+                val myUid = auth.currentUser?.uid
+                val byEmail = firestore.collection("users")
+                    .whereGreaterThanOrEqualTo("email", q)
+                    .whereLessThan("email", q + '')
+                    .limit(20).get().await()
+                val byName = firestore.collection("users")
+                    .whereGreaterThanOrEqualTo("name", query.trim())
+                    .whereLessThan("name", query.trim() + '')
+                    .limit(20).get().await()
+                _searchResults.value = (byEmail.documents + byName.documents)
+                    .distinctBy { it.id }
+                    .filter { it.id != myUid }
+                    .map { Triple(it.id, it.getString("email") ?: "", it.getString("name") ?: "") }
+            } catch (_: Exception) {
+                _searchResults.value = emptyList()
+            } finally {
+                _isSearching.value = false
+            }
+        }
+    }
+
+    fun markAllAsRead() {
+        val myUid = auth.currentUser?.uid ?: return
+        val unreadChats = allChats.filter { it.unreadCount > 0 }
+        if (unreadChats.isEmpty()) return
+        val batch = firestore.batch()
+        unreadChats.forEach { chat ->
+            batch.update(firestore.collection("chats").document(chat.chatId), "unreadCount_$myUid", 0)
+        }
+        batch.commit()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        searchJob?.cancel()
     }
 }

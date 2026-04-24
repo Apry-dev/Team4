@@ -31,7 +31,19 @@
       "Bash(sed *)",
       "Bash(python3 'C:\\\\Users\\\\Marcos Marin\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.5.0\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py' \"university student social messaging community mobile\" --design-system -p \"ESN Messenger\" -f markdown)",
       "Bash(python *)",
-      "Bash(./gradlew assembleDebug)"
+      "Bash(./gradlew assembleDebug)",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug 2>&1\")",
+      "Bash(cmd.exe /c \"cd \\\\\"C:\\\\\\\\Users\\\\\\\\Marcos Marin\\\\\\\\Team4\\\\\" && gradlew.bat assembleDebug\")",
+      "Bash(cmd.exe /c \"cd \\\\\"C:\\\\\\\\Users\\\\\\\\Marcos Marin\\\\\\\\Team4\\\\\" && gradlew.bat assembleDebug 2>&1\")",
+      "Bash(cmd.exe /c \"cd \\\\\"C:\\\\\\\\Users\\\\\\\\Marcos Marin\\\\\\\\Team4\\\\\" && gradlew.bat assembleDebug > C:\\\\\\\\Users\\\\\\\\Marcos Marin\\\\\\\\build_output.txt 2>&1\")",
+      "Read(//c/Users/Marcos Marin/**)",
+      "Bash(cmd.exe /c \"cd \\\\\"C:\\\\\\\\Users\\\\\\\\Marcos Marin\\\\\\\\Team4\\\\\" && gradlew.bat assembleDebug > \\\\\"C:\\\\\\\\Users\\\\\\\\Marcos Marin\\\\\\\\build_output.txt\\\\\" 2>&1\" sleep 5 cat \"C:/Users/Marcos Marin/build_output.txt\")",
+      "Bash(bash gradlew *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git -C \"C:\\\\Users\\\\Marcos Marin\\\\Team4\" show HEAD:app/src/main/java/com/example/esnmessenger/screens/ContactsScreen.kt)",
+      "Bash(git *)",
+      "Bash(node *)"
     ]
   }
 }

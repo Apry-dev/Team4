@@ -41,6 +41,9 @@ class ChatViewModel : ViewModel() {
     private val _otherUserLastSeen = MutableStateFlow(0L)
     val otherUserLastSeen: StateFlow<Long> = _otherUserLastSeen
 
+    private val _isBlocked = MutableStateFlow(false)
+    val isBlocked: StateFlow<Boolean> = _isBlocked
+
     private var listenerRegistration: ListenerRegistration? = null
     private var typingListenerRegistration: ListenerRegistration? = null
     private var typingJob: Job? = null
@@ -60,6 +63,13 @@ class ChatViewModel : ViewModel() {
             .addOnSuccessListener { doc ->
                 _otherUserName.value = doc.getString("name")
                 _otherUserPhotoBase64.value = doc.getString("photoBase64")
+            }
+
+        db.collection("blocks").document(currentUid).get()
+            .addOnSuccessListener { doc ->
+                @Suppress("UNCHECKED_CAST")
+                val blocked = doc.get("uids") as? List<String> ?: emptyList()
+                _isBlocked.value = blocked.contains(otherUserId)
             }
 
         // Update own lastSeen

@@ -1,5 +1,6 @@
 package com.example.esnmessenger.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.esnmessenger.model.*
@@ -7,6 +8,7 @@ import com.example.esnmessenger.network.JamixService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -47,7 +49,7 @@ class RestaurantsViewModel : ViewModel() {
                         date = date,
                         date2 = date
                     )
-                    val mealOptions = response
+                    val parsed = (response ?: emptyList())
                         .flatMap { it.menuTypes }
                         .map { menuType ->
                             MealOption(
@@ -63,15 +65,18 @@ class RestaurantsViewModel : ViewModel() {
                             )
                         }
                         .filter { it.items.isNotEmpty() }
+                    val mealOptions = parsed.ifEmpty { FALLBACK_MENUS }
                     _menus.value = _menus.value.map { menu ->
                         if (menu.restaurant.id == restaurant.id)
                             menu.copy(mealOptions = mealOptions, isLoading = false)
                         else menu
                     }
                 } catch (e: Exception) {
+                    Log.e("Jamix", "Failed for kitchen ${restaurant.kitchenId} on $date: ${e::class.simpleName} — ${e.message}")
+                    val errorMsg = if (e is IOException) "No internet connection" else null
                     _menus.value = _menus.value.map { menu ->
                         if (menu.restaurant.id == restaurant.id)
-                            menu.copy(isLoading = false, error = "Could not load menu")
+                            menu.copy(isLoading = false, error = errorMsg, mealOptions = if (errorMsg == null) FALLBACK_MENUS else emptyList())
                         else menu
                     }
                 }

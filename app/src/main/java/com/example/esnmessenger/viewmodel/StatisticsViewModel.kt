@@ -78,7 +78,12 @@ class StatisticsViewModel : ViewModel() {
 
         receivedListener = db.collectionGroup("messages")
             .whereEqualTo("toId", uid)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, err ->
+                if (err != null) {
+                    _error.value = "Stats require a Firestore index — check Logcat for setup link."
+                    _isLoading.value = false
+                    return@addSnapshotListener
+                }
                 allReceivedMessages = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(Message::class.java)?.copy(id = doc.id)
                 } ?: emptyList()
